@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-namespace Google\Auth;
+namespace Google\Auth\BlobSigner;
 
 use phpseclib\Crypt\RSA;
 
 /**
  * Sign a string using a Service Account private key.
  */
-trait ServiceAccountSignerTrait
+trait ServiceAccountBlobSignerTrait
 {
     /**
      * Sign a string using the service account private key.

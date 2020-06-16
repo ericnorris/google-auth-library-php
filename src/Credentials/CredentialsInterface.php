@@ -1,6 +1,6 @@
 <?php
 /*
- * Copyright 2019 Google LLC
+ * Copyright 2015 Google Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,19 +15,26 @@
  * limitations under the License.
  */
 
-namespace Google\Auth;
+namespace Google\Auth\Credentials;
+
+use Google\Http\ClientInterface;
 
 /**
- * An interface implemented by objects that can get quota projects.
+ * An interface implemented by objects that can fetch auth tokens.
  */
-interface GetQuotaProjectInterface
+interface CredentialsInterface
 {
-    const X_GOOG_USER_PROJECT_HEADER = 'X-Goog-User-Project';
-
     /**
-     * Get the quota project used for this API request
+     * Fetches the auth tokens based on the current state.
      *
-     * @return string|null
+     * @param callable $httpClient callback which delivers psr7 request
+     * @return array a hash of auth tokens
      */
-    public function getQuotaProject();
+    public function fetchAuthToken(ClientInterface $httpClient = null): array;
+
+    public function getRequestMetadata(
+        ClientInterface $httpClient = null
+    ): array;
+
+    public function setCache(CacheInterface $cache): void;
 }

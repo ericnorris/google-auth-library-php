@@ -17,7 +17,6 @@
 
 namespace Google\Auth\Credentials;
 
-use Google\Auth\CredentialsLoader;
 use Google\Auth\GetQuotaProjectInterface;
 use Google\Auth\OAuth2;
 
@@ -32,8 +31,12 @@ use Google\Auth\OAuth2;
  *
  * @see [Application Default Credentials](http://goo.gl/mkAHpZ)
  */
-class UserRefreshCredentials extends CredentialsLoader implements GetQuotaProjectInterface
+class UserRefreshCredentials implements
+    CredentialsInterface,
+    GetQuotaProjectInterface
 {
+    use CredentialsTrait;
+
     /**
      * The OAuth2 instance used to conduct authorization.
      *
@@ -55,8 +58,8 @@ class UserRefreshCredentials extends CredentialsLoader implements GetQuotaProjec
      *   as an associative array
      */
     public function __construct(
-        $scope,
-        $jsonKey
+        string $scope,
+        string $jsonKey
     ) {
         if (is_string($jsonKey)) {
             if (!file_exists($jsonKey)) {
@@ -131,7 +134,7 @@ class UserRefreshCredentials extends CredentialsLoader implements GetQuotaProjec
      *
      * @return string|null
      */
-    public function getQuotaProject()
+    public function getQuotaProject(): ?string
     {
         return $this->quotaProject;
     }

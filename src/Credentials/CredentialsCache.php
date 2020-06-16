@@ -15,24 +15,24 @@
  * limitations under the License.
  */
 
-namespace Google\Auth;
+namespace Google\Auth\Credentials;
 
 use Psr\Cache\CacheItemPoolInterface;
 
 /**
  * A class to implement caching for any object implementing
- * FetchAuthTokenInterface
+ * CredentialsInterface
  */
-class FetchAuthTokenCache implements
-    FetchAuthTokenInterface,
+class CredentialsCache implements
+    CredentialsInterface,
     GetQuotaProjectInterface,
     SignBlobInterface,
     ProjectIdProviderInterface
 {
-    use CacheTrait;
+    private const MAX_KEY_LENGTH = 64;
 
     /**
-     * @var FetchAuthTokenInterface
+     * @var CredentialsInterface
      */
     private $fetcher;
 
@@ -47,12 +47,12 @@ class FetchAuthTokenCache implements
     private $cache;
 
     /**
-     * @param FetchAuthTokenInterface $fetcher A credentials fetcher
+     * @param CredentialsInterface $fetcher A credentials fetcher
      * @param array $cacheConfig Configuration for the cache
      * @param CacheItemPoolInterface $cache
      */
     public function __construct(
-        FetchAuthTokenInterface $fetcher,
+        CredentialsInterface $fetcher,
         array $cacheConfig = null,
         CacheItemPoolInterface $cache
     ) {
@@ -65,7 +65,7 @@ class FetchAuthTokenCache implements
     }
 
     /**
-     * Implements FetchAuthTokenInterface#fetchAuthToken.
+     * Implements CredentialsInterface#fetchAuthToken.
      *
      * Checks the cache for a valid auth token and fetches the auth tokens
      * from the supplied fetcher.
@@ -153,7 +153,7 @@ class FetchAuthTokenCache implements
      *
      * @return string|null
      */
-    public function getQuotaProject()
+    public function getQuotaProject(): ?string
     {
         if ($this->fetcher instanceof GetQuotaProjectInterface) {
             return $this->fetcher->getQuotaProject();

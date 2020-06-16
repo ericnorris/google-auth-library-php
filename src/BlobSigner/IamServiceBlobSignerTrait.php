@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-namespace Google\Auth;
+namespace Google\Auth\BlobSigner;
 
 use Google\Auth\HttpHandler\HttpClientCache;
 use Google\Auth\HttpHandler\HttpHandlerFactory;
@@ -26,26 +26,8 @@ use GuzzleHttp\Psr7;
  *
  * @see https://cloud.google.com/iam/docs IAM Documentation
  */
-class Iam
+trait IamServiceBlobSignerTrait
 {
-    const IAM_API_ROOT = 'https://iamcredentials.googleapis.com/v1';
-    const SIGN_BLOB_PATH = '%s:signBlob?alt=json';
-    const SERVICE_ACCOUNT_NAME = 'projects/-/serviceAccounts/%s';
-
-    /**
-     * @var callable
-     */
-    private $httpHandler;
-
-    /**
-     * @param callable $httpHandler [optional] The HTTP Handler to send requests.
-     */
-    public function __construct(callable $httpHandler = null)
-    {
-        $this->httpHandler = $httpHandler
-            ?: HttpHandlerFactory::build(HttpClientCache::getHttpClient());
-    }
-
     /**
      * Sign a string using the IAM signBlob API.
      *
@@ -61,15 +43,22 @@ class Iam
      *        be used.
      * @return string The signed string, base64-encoded.
      */
-    public function signBlob($email, $accessToken, $stringToSign, array $delegates = [])
-    {
-        $httpHandler = $this->httpHandler;
-        $name = sprintf(self::SERVICE_ACCOUNT_NAME, $email);
-        $uri = self::IAM_API_ROOT . '/' . sprintf(self::SIGN_BLOB_PATH, $name);
+    private function signBlob(
+        ClientInterface $httpClient,
+        string $email,
+        string $accessToken,
+        string $stringToSign,
+        array $delegates = []
+    ): string {
+        $name = sprintf('projects/-/serviceAccounts/%s', $email);
+        $uri = sprintf(
+            'https://iamcredentials.googleapis.com/v1/%s:signBlob?alt=json',
+            $name
+        );
 
         if ($delegates) {
             foreach ($delegates as &$delegate) {
-                $delegate = sprintf(self::SERVICE_ACCOUNT_NAME, $delegate);
+                $delegate = sprintf('projects/-/serviceAccounts/%s', $delegate);
             }
         } else {
             $delegates = [$name];
@@ -91,7 +80,7 @@ class Iam
             Psr7\stream_for(json_encode($body))
         );
 
-        $res = $httpHandler($request);
+        $res = $httpClient->send($request);
         $body = json_decode((string) $res->getBody(), true);
 
         return $body['signedBlob'];

@@ -77,7 +77,7 @@ As long as you update the environment variable below to point to *your* JSON
 credentials file, the following code should output a list of your Drive files.
 
 ```php
-use Google\Auth\ApplicationDefaultCredentials;
+use Google\Auth\GoogleAuth;
 use GuzzleHttp\Client;
 use GuzzleHttp\HandlerStack;
 
@@ -88,7 +88,7 @@ putenv('GOOGLE_APPLICATION_CREDENTIALS=/path/to/my/credentials.json');
 $scopes = ['https://www.googleapis.com/auth/drive.readonly'];
 
 // create middleware
-$middleware = ApplicationDefaultCredentials::getMiddleware($scopes);
+$middleware = GoogleAuth::getMiddleware($scopes);
 $stack = HandlerStack::create();
 $stack->push($middleware);
 
@@ -106,31 +106,14 @@ $response = $client->get('drive/v2/files');
 print_r((string) $response->getBody());
 ```
 
-##### Guzzle 5 Compatibility
-
-If you are using [Guzzle 5][Guzzle 5], replace the `create middleware` and
-`create the HTTP Client` steps with the following:
-
-```php
-// create the HTTP client
-$client = new Client([
-  'base_url' => 'https://www.googleapis.com',
-  'auth' => 'google_auth'  // authorize all requests
-]);
-
-// create subscriber
-$subscriber = ApplicationDefaultCredentials::getSubscriber($scopes);
-$client->getEmitter()->attach($subscriber);
-```
-
 #### Call using an ID Token
 If your application is running behind Cloud Run, or using Cloud Identity-Aware
 Proxy (IAP), you will need to fetch an ID token to access your application. For
 this, use the static method `getIdTokenMiddleware` on
-`ApplicationDefaultCredentials`.
+`GoogleAuth`.
 
 ```php
-use Google\Auth\ApplicationDefaultCredentials;
+use Google\Auth\GoogleAuth;
 use GuzzleHttp\Client;
 use GuzzleHttp\HandlerStack;
 
@@ -144,7 +127,7 @@ putenv('GOOGLE_APPLICATION_CREDENTIALS=/path/to/my/credentials.json');
 $targetAudience = 'YOUR_ID_TOKEN_AUDIENCE';
 
 // create middleware
-$middleware = ApplicationDefaultCredentials::getIdTokenMiddleware($targetAudience);
+$middleware = GoogleAuth::getIdTokenMiddleware($targetAudience);
 $stack = HandlerStack::create();
 $stack->push($middleware);
 

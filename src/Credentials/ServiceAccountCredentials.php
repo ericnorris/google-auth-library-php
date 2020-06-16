@@ -17,12 +17,11 @@
 
 namespace Google\Auth\Credentials;
 
-use Google\Auth\CredentialsLoader;
+use Google\Auth\BlobSigner\ServiceAccountBlobSignerTrait;
+use Google\Auth\BlobSigner\BlobSignerInterface;
 use Google\Auth\GetQuotaProjectInterface;
 use Google\Auth\OAuth2;
 use Google\Auth\ProjectIdProviderInterface;
-use Google\Auth\ServiceAccountSignerTrait;
-use Google\Auth\SignBlobInterface;
 use InvalidArgumentException;
 
 /**
@@ -58,12 +57,13 @@ use InvalidArgumentException;
  *
  *   $res = $client->get('myproject/taskqueues/myqueue');
  */
-class ServiceAccountCredentials extends CredentialsLoader implements
+class ServiceAccountCredentials implements
+    CredentialsInterface,
     GetQuotaProjectInterface,
-    SignBlobInterface,
+    BlobSignerInterface,
     ProjectIdProviderInterface
 {
-    use ServiceAccountSignerTrait;
+    use CredentialsTrait, ServiceAccountBlobSignerTrait;
 
     /**
      * The OAuth2 instance used to conduct authorization.

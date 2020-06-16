@@ -17,12 +17,11 @@
 
 namespace Google\Auth\Credentials;
 
-use Google\Auth\CredentialsLoader;
+use Google\Auth\BlobSigner\ServiceAccountBlobSignerTrait;
+use Google\Auth\BlobSigner\BlobSignerInterface;
 use Google\Auth\GetQuotaProjectInterface;
 use Google\Auth\OAuth2;
 use Google\Auth\ProjectIdProviderInterface;
-use Google\Auth\ServiceAccountSignerTrait;
-use Google\Auth\SignBlobInterface;
 
 /**
  * Authenticates requests using Google's Service Account credentials via
@@ -33,12 +32,13 @@ use Google\Auth\SignBlobInterface;
  * console (via 'Generate new Json Key').  It is not part of any OAuth2
  * flow, rather it creates a JWT and sends that as a credential.
  */
-class ServiceAccountJwtAccessCredentials extends CredentialsLoader implements
+class ServiceAccountJwtAccessCredentials implements
+    CredentialsInterface,
     GetQuotaProjectInterface,
     SignBlobInterface,
     ProjectIdProviderInterface
 {
-    use ServiceAccountSignerTrait;
+    use CredentialsTrait, ServiceAccountBlobSignerTrait;
 
     /**
      * The OAuth2 instance used to conduct authorization.

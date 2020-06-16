@@ -17,13 +17,12 @@
 
 namespace Google\Auth\Credentials;
 
-use Google\Auth\CredentialsLoader;
 use Google\Auth\GetQuotaProjectInterface;
+use Google\Auth\Http\ClientFactory;
 use Google\Auth\HttpHandler\HttpClientCache;
 use Google\Auth\HttpHandler\HttpHandlerFactory;
-use Google\Auth\Iam;
 use Google\Auth\ProjectIdProviderInterface;
-use Google\Auth\SignBlobInterface;
+use Google\Auth\BlobSigner\BlobSignerInterface;
 use GuzzleHttp\Exception\ClientException;
 use GuzzleHttp\Exception\RequestException;
 use GuzzleHttp\Exception\ServerException;
@@ -54,14 +53,17 @@ use InvalidArgumentException;
  *
  *   $res = $client->get('myproject/taskqueues/myqueue');
  */
-class GCECredentials extends CredentialsLoader implements
+class ComputeCredentials implements
+    CredentialsInterface,
     SignBlobInterface,
     ProjectIdProviderInterface,
     GetQuotaProjectInterface
 {
-    // phpcs:disable
-    const cacheKey = 'GOOGLE_AUTH_PHP_GCE';
-    // phpcs:enable
+    use CredentialsTrait, IamServiceSignerTrait {
+        IamServiceSignerTrait::signBlob as iamSignBlob
+    }
+
+    const CACHE_KEY = 'GOOGLE_AUTH_PHP_GCE';
 
     /**
      * The metadata IP address on appengine instances.
@@ -139,11 +141,6 @@ class GCECredentials extends CredentialsLoader implements
     private $projectId;
 
     /**
-     * @var Iam|null
-     */
-    private $iam;
-
-    /**
      * @var string
      */
     private $tokenUri;
@@ -159,44 +156,56 @@ class GCECredentials extends CredentialsLoader implements
     private $quotaProject;
 
     /**
-     * @param Iam $iam [optional] An IAM instance.
-     * @param string|array $scope [optional] the scope of the access request,
-     *        expressed either as an array or as a space-delimited string.
-     * @param string $targetAudience [optional] The audience for the ID token.
-     * @param string $quotaProject [optional] Specifies a project to bill for access
-     *   charges associated with the request.
+     * @var ClientInterface
      */
-    public function __construct(Iam $iam = null, $scope = null, $targetAudience = null, $quotaProject = null)
-    {
-        $this->iam = $iam;
+    private $httpClient;
 
-        if ($scope && $targetAudience) {
+    /**
+     * @param array $options {
+     *     @type string|array $scope the scope of the access request,
+     *         expressed either as an array or as a space-delimited string.
+     *     @type string $targetAudience The audience for the ID token.
+     *     @type string $quotaProject Specifies a project to bill for access
+     *         charges associated with the request.
+     * }
+     */
+    public function __construct(array $options = [])
+    {
+        $options += [
+            'scope' => null,
+            'targetAudience' => null,
+            'quotaProject' => null,
+            'httpClient' => null,
+        ];
+
+        if ($options['scope'] && $options['targetAudience']) {
             throw new InvalidArgumentException(
                 'Scope and targetAudience cannot both be supplied'
             );
         }
 
         $tokenUri = self::getTokenUri();
-        if ($scope) {
-            if (is_string($scope)) {
-                $scope = explode(' ', $scope);
+        if ($options['scope']) {
+            if (is_string($options['scope'])) {
+                $options['scope'] = explode(' ', $options['scope']);
             }
 
-            $scope = implode(',', $scope);
+            $options['scope'] = implode(',', $options['scope']);
 
-            $tokenUri = $tokenUri . '?scopes='. $scope;
-        } elseif ($targetAudience) {
+            $tokenUri = $tokenUri . '?scopes='. $options['scope'];
+        } elseif ($options['targetAudience']) {
             $tokenUri = sprintf(
                 'http://%s/computeMetadata/%s?audience=%s',
                 self::METADATA_IP,
                 self::ID_TOKEN_URI_PATH,
-                $targetAudience
+                $options['targetAudience']
             );
-            $this->targetAudience = $targetAudience;
+            $this->targetAudience = $options['targetAudience'];
         }
 
         $this->tokenUri = $tokenUri;
-        $this->quotaProject = $quotaProject;
+        $this->quotaProject = $options['quotaProject'];
+        $this->httpClient = $options['httpClient'] ?: ClientFactory::build();
     }
 
     /**
@@ -204,7 +213,7 @@ class GCECredentials extends CredentialsLoader implements
      *
      * @return string
      */
-    public static function getTokenUri()
+    public static function getTokenUri(): string
     {
         $base = 'http://' . self::METADATA_IP . '/computeMetadata/';
 
@@ -216,7 +225,7 @@ class GCECredentials extends CredentialsLoader implements
      *
      * @return string
      */
-    public static function getClientNameUri()
+    public static function getClientNameUri(): string
     {
         $base = 'http://' . self::METADATA_IP . '/computeMetadata/';
 
@@ -224,24 +233,12 @@ class GCECredentials extends CredentialsLoader implements
     }
 
     /**
-     * The full uri for accessing the default project ID.
-     *
-     * @return string
-     */
-    private static function getProjectIdUri()
-    {
-        $base = 'http://' . self::METADATA_IP . '/computeMetadata/';
-
-        return $base . self::PROJECT_ID_URI_PATH;
-    }
-
-    /**
      * Determines if this an App Engine Flexible instance, by accessing the
      * GAE_INSTANCE environment variable.
      *
-     * @return bool true if this an App Engine Flexible Instance, false otherwise
+     * @return bool
      */
-    public static function onAppEngineFlexible()
+    public static function onAppEngineFlexible(): bool
     {
         return substr(getenv('GAE_INSTANCE'), 0, 4) === 'aef-';
     }
@@ -249,16 +246,12 @@ class GCECredentials extends CredentialsLoader implements
     /**
      * Determines if this a GCE instance, by accessing the expected metadata
      * host.
-     * If $httpHandler is not specified a the default HttpHandler is used.
      *
-     * @param callable $httpHandler callback which delivers psr7 request
-     * @return bool True if this a GCEInstance, false otherwise
+     * @param ClientInterface $httpClient
+     * @return bool
      */
-    public static function onGce(callable $httpHandler = null)
+    public static function onGce(ClientInterface $httpClient): bool
     {
-        $httpHandler = $httpHandler
-            ?: HttpHandlerFactory::build(HttpClientCache::getHttpClient());
-
         $checkUri = 'http://' . self::METADATA_IP;
         for ($i = 1; $i <= self::MAX_COMPUTE_PING_TRIES; $i++) {
             try {
@@ -270,7 +263,7 @@ class GCECredentials extends CredentialsLoader implements
                 // could lead to false negatives in the event that we are on GCE, but
                 // the metadata resolution was particularly slow. The latter case is
                 // "unlikely".
-                $resp = $httpHandler(
+                $resp = $httpClient->send(
                     new Request(
                         'GET',
                         $checkUri,
@@ -292,9 +285,9 @@ class GCECredentials extends CredentialsLoader implements
      * Implements FetchAuthTokenInterface#fetchAuthToken.
      *
      * Fetches the auth tokens from the GCE metadata host if it is available.
-     * If $httpHandler is not specified a the default HttpHandler is used.
+     * If $httpClient is not specified a the default HttpHandler is used.
      *
-     * @param callable $httpHandler callback which delivers psr7 request
+     * @param ClientInterface $httpClient callback which delivers psr7 request
      *
      * @return array A set of auth related metadata, based on the token type.
      *
@@ -307,20 +300,16 @@ class GCECredentials extends CredentialsLoader implements
      *
      * @throws \Exception
      */
-    public function fetchAuthToken(callable $httpHandler = null)
+    public function fetchAuthToken(ClientInterface $httpClient = null): array
     {
-        $httpHandler = $httpHandler
-            ?: HttpHandlerFactory::build(HttpClientCache::getHttpClient());
-
-        if (!$this->hasCheckedOnGce) {
-            $this->isOnGce = self::onGce($httpHandler);
-            $this->hasCheckedOnGce = true;
-        }
-        if (!$this->isOnGce) {
-            return array();  // return an empty array with no access token
+        if (!$this->isOnGce($httpClient)) {
+            return [];  // return an empty array with no access token
         }
 
-        $response = $this->getFromMetadata($httpHandler, $this->tokenUri);
+        $response = $this->getFromMetadata(
+            $httpClient ?: $this->httpClient,
+            $this->tokenUri
+        );
 
         if ($this->targetAudience) {
             return ['id_token' => $response];
@@ -338,57 +327,27 @@ class GCECredentials extends CredentialsLoader implements
     }
 
     /**
-     * @return string
-     */
-    public function getCacheKey()
-    {
-        return self::cacheKey;
-    }
-
-    /**
-     * @return array|null
-     */
-    public function getLastReceivedToken()
-    {
-        if ($this->lastReceivedToken) {
-            return [
-                'access_token' => $this->lastReceivedToken['access_token'],
-                'expires_at' => $this->lastReceivedToken['expires_at'],
-            ];
-        }
-
-        return null;
-    }
-
-    /**
      * Get the client name from GCE metadata.
      *
      * Subsequent calls will return a cached value.
      *
-     * @param callable $httpHandler callback which delivers psr7 request
+     * @param ClientInterface $httpClient callback which delivers psr7 request
      * @return string
      */
-    public function getClientName(callable $httpHandler = null)
+    public function getClientName(ClientInterface $httpClient = null): string
     {
         if ($this->clientName) {
             return $this->clientName;
         }
 
-        $httpHandler = $httpHandler
-            ?: HttpHandlerFactory::build(HttpClientCache::getHttpClient());
-
-        if (!$this->hasCheckedOnGce) {
-            $this->isOnGce = self::onGce($httpHandler);
-            $this->hasCheckedOnGce = true;
-        }
-
-        if (!$this->isOnGce) {
+        if (!$this->isOnGce($httpClient)) {
             return '';
         }
 
-        $this->clientName = $this->getFromMetadata($httpHandler, self::getClientNameUri());
-
-        return $this->clientName;
+        return $this->clientName = $this->getFromMetadata(
+            $httpClient ?: $this->httpClient,
+            self::getClientNameUri()
+        );
     }
 
     /**
@@ -405,20 +364,19 @@ class GCECredentials extends CredentialsLoader implements
      */
     public function signBlob($stringToSign, $forceOpenSsl = false)
     {
-        $httpHandler = HttpHandlerFactory::build(HttpClientCache::getHttpClient());
-
-        // Providing a signer is useful for testing, but it's undocumented
-        // because it's not something a user would generally need to do.
-        $signer = $this->iam ?: new Iam($httpHandler);
-
-        $email = $this->getClientName($httpHandler);
+        $email = $this->getClientName();
 
         $previousToken = $this->getLastReceivedToken();
         $accessToken = $previousToken
             ? $previousToken['access_token']
-            : $this->fetchAuthToken($httpHandler)['access_token'];
+            : $this->fetchAuthToken()['access_token'];
 
-        return $signer->signBlob($email, $accessToken, $stringToSign);
+        return $this->iamSignBlob(
+            $this->httpClient,
+            $email,
+            $accessToken,
+            $stringToSign
+        );
     }
 
     /**
@@ -426,41 +384,55 @@ class GCECredentials extends CredentialsLoader implements
      *
      * Returns null if called outside GCE.
      *
-     * @param callable $httpHandler Callback which delivers psr7 request
+     * @param ClientInterface $httpClient Callback which delivers psr7 request
      * @return string|null
      */
-    public function getProjectId(callable $httpHandler = null)
+    public function getProjectId(ClientInterface $httpClient = null): ?string
     {
         if ($this->projectId) {
             return $this->projectId;
         }
 
-        $httpHandler = $httpHandler
-            ?: HttpHandlerFactory::build(HttpClientCache::getHttpClient());
-
-        if (!$this->hasCheckedOnGce) {
-            $this->isOnGce = self::onGce($httpHandler);
-            $this->hasCheckedOnGce = true;
-        }
-
-        if (!$this->isOnGce) {
+        if (!$this->isOnGce($httpClient)) {
             return null;
         }
 
-        $this->projectId = $this->getFromMetadata($httpHandler, self::getProjectIdUri());
-        return $this->projectId;
+        return $this->projectId = $this->getFromMetadata(
+            $httpClient ?: $this->httpClient,
+            self::getProjectIdUri()
+        );
+    }
+
+    /**
+     * Get the quota project used for this API request
+     *
+     * @return string|null
+     */
+    public function getQuotaProject(): ?string
+    {
+        return $this->quotaProject;
+    }
+
+    private function isOnGce($httpClient = null): bool
+    {
+        if (!$this->hasCheckedOnGce) {
+            $this->isOnGce = self::onGce($httpClient ?: $this->httpClient);
+            $this->hasCheckedOnGce = true;
+        }
+
+        return $this->isOnGce;
     }
 
     /**
      * Fetch the value of a GCE metadata server URI.
      *
-     * @param callable $httpHandler An HTTP Handler to deliver PSR7 requests.
+     * @param ClientInterface $httpClient An HTTP Handler to deliver PSR7 requests.
      * @param string $uri The metadata URI.
      * @return string
      */
-    private function getFromMetadata(callable $httpHandler, $uri)
+    private function getFromMetadata(ClientInterface $httpClient, $uri)
     {
-        $resp = $httpHandler(
+        $resp = $httpClient(
             new Request(
                 'GET',
                 $uri,
@@ -472,12 +444,14 @@ class GCECredentials extends CredentialsLoader implements
     }
 
     /**
-     * Get the quota project used for this API request
+     * The full uri for accessing the default project ID.
      *
-     * @return string|null
+     * @return string
      */
-    public function getQuotaProject()
+    private static function getProjectIdUri(): string
     {
-        return $this->quotaProject;
+        $base = 'http://' . self::METADATA_IP . '/computeMetadata/';
+
+        return $base . self::PROJECT_ID_URI_PATH;
     }
 }

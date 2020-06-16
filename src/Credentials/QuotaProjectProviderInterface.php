@@ -1,6 +1,6 @@
 <?php
 /*
- * Copyright 2020 Google LLC
+ * Copyright 2019 Google LLC
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,15 +18,16 @@
 namespace Google\Auth;
 
 /**
- * Describes a Credentials object which supports fetching the project ID.
+ * An interface implemented by objects that can get quota projects.
  */
-interface ProjectIdProviderInterface
+interface QuotaProjectProviderInterface
 {
+    const X_GOOG_USER_PROJECT_HEADER = 'X-Goog-User-Project';
+
     /**
-     * Get the project ID.
+     * Get the quota project used for this API request
      *
-     * @param callable $httpHandler Callback which delivers psr7 request
      * @return string|null
      */
-    public function getProjectId(callable $httpHandler = null);
+    public function getQuotaProject(): ?string;
 }

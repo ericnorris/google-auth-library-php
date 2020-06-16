@@ -35,9 +35,9 @@ use Psr\Http\Message\UriInterface;
  */
 class OAuth2 implements FetchAuthTokenInterface
 {
-    const DEFAULT_EXPIRY_SECONDS = 3600; // 1 hour
-    const DEFAULT_SKEW_SECONDS = 60; // 1 minute
-    const JWT_URN = 'urn:ietf:params:oauth:grant-type:jwt-bearer';
+    private const DEFAULT_EXPIRY_SECONDS = 3600; // 1 hour
+    private const DEFAULT_SKEW_SECONDS = 60; // 1 minute
+    private const JWT_URN = 'urn:ietf:params:oauth:grant-type:jwt-bearer';
 
     /**
      * TODO: determine known methods from the keys of JWT::methods.
@@ -635,6 +635,244 @@ class OAuth2 implements FetchAuthTokenInterface
         if (array_key_exists('refresh_token', $opts)) {
             $this->setRefreshToken($opts['refresh_token']);
         }
+    }
+
+    /**
+     * Verifies an id token and returns the authenticated apiLoginTicket.
+     * Throws an exception if the id token is not valid.
+     * The audience parameter can be used to control which id tokens are
+     * accepted.  By default, the id token must have been issued to this OAuth2 client.
+     *
+     * @param string $token The JSON Web Token to be verified.
+     * @param array $options [optional] Configuration options.
+     * @param string $options.audience The indended recipient of the token.
+     * @param string $options.issuer The intended issuer of the token.
+     * @param string $options.cacheKey The cache key of the cached certs. Defaults to
+     *        the sha1 of $certsLocation if provided, otherwise is set to
+     *        "federated_signon_certs_v3".
+     * @param string $options.certsLocation The location (remote or local) from which
+     *        to retrieve certificates, if not cached. This value should only be
+     *        provided in limited circumstances in which you are sure of the
+     *        behavior.
+     * @param bool $options.throwException Whether the function should throw an
+     *        exception if the verification fails. This is useful for
+     *        determining the reason verification failed.
+     * @return array|bool the token payload, if successful, or false if not.
+     * @throws InvalidArgumentException If certs could not be retrieved from a local file.
+     * @throws InvalidArgumentException If received certs are in an invalid format.
+     * @throws InvalidArgumentException If the cert alg is not supported.
+     * @throws RuntimeException If certs could not be retrieved from a remote location.
+     * @throws UnexpectedValueException If the token issuer does not match.
+     * @throws UnexpectedValueException If the token audience does not match.
+     */
+    public function verify($token, array $options = [])
+    {
+        $audience = isset($options['audience'])
+            ? $options['audience']
+            : null;
+        $issuer = isset($options['issuer'])
+            ? $options['issuer']
+            : null;
+        $certsLocation = isset($options['certsLocation'])
+            ? $options['certsLocation']
+            : self::FEDERATED_SIGNON_CERT_URL;
+        $cacheKey = isset($options['cacheKey'])
+            ? $options['cacheKey']
+            : $this->getCacheKeyFromCertLocation($certsLocation);
+        $throwException = isset($options['throwException'])
+            ? $options['throwException']
+            : false; // for backwards compatibility
+
+        // Check signature against each available cert.
+        $certs = $this->getCerts($certsLocation, $cacheKey, $options);
+        $alg = $this->determineAlg($certs);
+        if (!in_array($alg, ['RS256', 'ES256'])) {
+            throw new InvalidArgumentException(
+                'unrecognized "alg" in certs, expected ES256 or RS256'
+            );
+        }
+        try {
+            if ($alg == 'RS256') {
+                return $this->verifyRs256($token, $certs, $audience, $issuer);
+            }
+            return $this->verifyEs256($token, $certs, $audience, $issuer);
+        } catch (ExpiredException $e) {  // firebase/php-jwt 3+
+        } catch (\ExpiredException $e) { // firebase/php-jwt 2
+        } catch (SignatureInvalidException $e) {  // firebase/php-jwt 3+
+        } catch (\SignatureInvalidException $e) { // firebase/php-jwt 2
+        } catch (InvalidTokenException $e) { // simplejwt
+        } catch (DomainException $e) {
+        } catch (InvalidArgumentException $e) {
+        } catch (UnexpectedValueException $e) {
+        }
+
+        if ($throwException) {
+            throw $e;
+        }
+
+        return false;
+    }
+
+    /**
+     * Verifies an ES256-signed JWT.
+     *
+     * @param string $token The JSON Web Token to be verified.
+     * @param array $certs Certificate array according to the JWK spec (see
+     *        https://tools.ietf.org/html/rfc7517).
+     * @param string|null $audience If set, returns false if the provided
+     *        audience does not match the "aud" claim on the JWT.
+     * @param string|null $issuer If set, returns false if the provided
+     *        issuer does not match the "iss" claim on the JWT.
+     * @return array|bool the token payload, if successful, or false if not.
+     */
+    private function verifyEs256($token, array $certs, $audience = null, $issuer = null)
+    {
+        $this->checkSimpleJwt();
+
+        $jwkset = new KeySet();
+        foreach ($certs as $cert) {
+            $jwkset->add(KeyFactory::create($cert, 'php'));
+        }
+
+        // Validate the signature using the key set and ES256 algorithm.
+        $jwt = $this->callSimpleJwtDecode([$token, $jwkset, 'ES256']);
+        $payload = $jwt->getClaims();
+
+        if (isset($payload['aud'])) {
+            if ($audience && $payload['aud'] != $audience) {
+                throw new UnexpectedValueException('Audience does not match');
+            }
+        }
+
+        // @see https://cloud.google.com/iap/docs/signed-headers-howto#verifying_the_jwt_payload
+        $issuer = $issuer ?: self::IAP_ISSUER;
+        if (!isset($payload['iss']) || $payload['iss'] !== $issuer) {
+            throw new UnexpectedValueException('Issuer does not match');
+        }
+
+        return $payload;
+    }
+
+    /**
+     * Verifies an RS256-signed JWT.
+     *
+     * @param string $token The JSON Web Token to be verified.
+     * @param array $certs Certificate array according to the JWK spec (see
+     *        https://tools.ietf.org/html/rfc7517).
+     * @param string|null $audience If set, returns false if the provided
+     *        audience does not match the "aud" claim on the JWT.
+     * @param string|null $issuer If set, returns false if the provided
+     *        issuer does not match the "iss" claim on the JWT.
+     * @return array|bool the token payload, if successful, or false if not.
+     */
+    private function verifyRs256($token, array $certs, $audience = null, $issuer = null)
+    {
+        $this->checkAndInitializePhpsec();
+        $keys = [];
+        foreach ($certs as $cert) {
+            if (empty($cert['kid'])) {
+                throw new InvalidArgumentException(
+                    'certs expects "kid" to be set'
+                );
+            }
+            if (empty($cert['n']) || empty($cert['e'])) {
+                throw new InvalidArgumentException(
+                    'RSA certs expects "n" and "e" to be set'
+                );
+            }
+            $rsa = new RSA();
+            $rsa->loadKey([
+                'n' => new BigInteger($this->callJwtStatic('urlsafeB64Decode', [
+                    $cert['n'],
+                ]), 256),
+                'e' => new BigInteger($this->callJwtStatic('urlsafeB64Decode', [
+                    $cert['e']
+                ]), 256),
+            ]);
+
+            // create an array of key IDs to certs for the JWT library
+            $keys[$cert['kid']] =  $rsa->getPublicKey();
+        }
+
+        $payload = $this->callJwtStatic('decode', [
+            $token,
+            $keys,
+            ['RS256']
+        ]);
+
+        if (property_exists($payload, 'aud')) {
+            if ($audience && $payload->aud != $audience) {
+                throw new UnexpectedValueException('Audience does not match');
+            }
+        }
+
+        // support HTTP and HTTPS issuers
+        // @see https://developers.google.com/identity/sign-in/web/backend-auth
+        $issuers = $issuer ? [$issuer] : [self::OAUTH2_ISSUER, self::OAUTH2_ISSUER_HTTPS];
+        if (!isset($payload->iss) || !in_array($payload->iss, $issuers)) {
+            throw new UnexpectedValueException('Issuer does not match');
+        }
+
+        return (array) $payload;
+    }
+
+    /**
+     * Identifies the expected algorithm to verify by looking at the "alg" key
+     * of the provided certs.
+     *
+     * @param array $certs Certificate array according to the JWK spec (see
+     *                     https://tools.ietf.org/html/rfc7517).
+     * @return string The expected algorithm, such as "ES256" or "RS256".
+     */
+    private function determineAlg(array $certs)
+    {
+        $alg = null;
+        foreach ($certs as $cert) {
+            if (empty($cert['alg'])) {
+                throw new InvalidArgumentException(
+                    'certs expects "alg" to be set'
+                );
+            }
+            $alg = $alg ?: $cert['alg'];
+
+            if ($alg != $cert['alg']) {
+                throw new InvalidArgumentException(
+                    'More than one alg detected in certs'
+                );
+            }
+        }
+        return $alg;
+    }
+
+    /**
+     * Revoke an OAuth2 access token or refresh token. This method will revoke the current access
+     * token, if a token isn't provided.
+     *
+     * @param string|array $token The token (access token or a refresh token) that should be revoked.
+     * @param array $options [optional] Configuration options.
+     * @return bool Returns True if the revocation was successful, otherwise False.
+     */
+    public function revoke($token, array $options = [])
+    {
+        if (is_array($token)) {
+            if (isset($token['refresh_token'])) {
+                $token = $token['refresh_token'];
+            } else {
+                $token = $token['access_token'];
+            }
+        }
+
+        $body = Psr7\stream_for(http_build_query(['token' => $token]));
+        $request = new Request('POST', self::OAUTH2_REVOKE_URI, [
+            'Cache-Control' => 'no-store',
+            'Content-Type'  => 'application/x-www-form-urlencoded',
+        ], $body);
+
+        $httpHandler = $this->httpHandler;
+
+        $response = $httpHandler($request, $options);
+
+        return $response->getStatusCode() == 200;
     }
 
     /**
