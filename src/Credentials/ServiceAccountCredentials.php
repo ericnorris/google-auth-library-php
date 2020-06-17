@@ -19,9 +19,7 @@ namespace Google\Auth\Credentials;
 
 use Google\Auth\SignBlob\ServiceAccountSignBlobTrait;
 use Google\Auth\SignBlob\SignBlobInterface;
-use Google\Auth\GetQuotaProjectInterface;
 use Google\Auth\OAuth2;
-use Google\Auth\ProjectIdProviderInterface;
 use InvalidArgumentException;
 
 /**
@@ -59,9 +57,7 @@ use InvalidArgumentException;
  */
 class ServiceAccountCredentials implements
     CredentialsInterface,
-    GetQuotaProjectInterface,
-    SignBlobInterface,
-    ProjectIdProviderInterface
+    SignBlobInterface
 {
     use CredentialsTrait, ServiceAccountSignBlobTrait;
 
@@ -87,20 +83,24 @@ class ServiceAccountCredentials implements
     /**
      * Create a new ServiceAccountCredentials.
      *
-     * @param string|array $scope the scope of the access request, expressed
-     *   either as an Array or as a space-delimited String.
-     * @param string|array $jsonKey JSON credential file path or JSON credentials
-     *   as an associative array
-     * @param string $sub an email address account to impersonate, in situations when
-     *   the service account has been delegated domain wide access.
-     * @param string $targetAudience The audience for the ID token.
+     * @param string|array $jsonKey JSON credential file path or JSON
+     *      credentials in associative array
+     * @param array $options {
+     *      @type string|array $scope the scope of the access request, expressed
+     *          as an array or as a space-delimited string.
+     *      @type string $sub an email address account to impersonate, in situations
+     *          when the service account has been delegated domain wide access.
+     *      @type string $targetAudience The audience for the ID token.
+     * }
      */
-    public function __construct(
-        $scope,
-        $jsonKey,
-        $sub = null,
-        $targetAudience = null
-    ) {
+    public function __construct($jsonKey, array $options = [])
+    {
+        $options += [
+            'scope' => null,
+            'targetAudience' => null,
+            'sub' => null,
+        ];
+
         if (is_string($jsonKey)) {
             if (!file_exists($jsonKey)) {
                 throw new \InvalidArgumentException('file does not exist');
@@ -123,23 +123,25 @@ class ServiceAccountCredentials implements
         if (array_key_exists('quota_project', $jsonKey)) {
             $this->quotaProject = (string) $jsonKey['quota_project'];
         }
-        if ($scope && $targetAudience) {
+        if ($options['scope'] && $options['targetAudience']) {
             throw new InvalidArgumentException(
                 'Scope and targetAudience cannot both be supplied'
             );
         }
         $additionalClaims = [];
-        if ($targetAudience) {
-            $additionalClaims = ['target_audience' => $targetAudience];
+        if ($optionos['targetAudience']) {
+            $additionalClaims = [
+                'target_audience' => $options['targetAudience']
+            ];
         }
         $this->auth = new OAuth2([
             'audience' => self::TOKEN_CREDENTIAL_URI,
-            'issuer' => $jsonKey['client_email'],
-            'scope' => $scope,
+            'tokenCredentialUri' => self::TOKEN_CREDENTIAL_URI,
             'signingAlgorithm' => 'RS256',
             'signingKey' => $jsonKey['private_key'],
-            'sub' => $sub,
-            'tokenCredentialUri' => self::TOKEN_CREDENTIAL_URI,
+            'issuer' => $jsonKey['client_email'],
+            'scope' => $options['scope'],
+            'sub' => $options['sub'],
             'additionalClaims' => $additionalClaims,
         ]);
 
@@ -242,7 +244,7 @@ class ServiceAccountCredentials implements
      * @param callable $httpHandler Not used by this credentials type.
      * @return string
      */
-    public function getClientName(callable $httpHandler = null)
+    private function getClientName(callable $httpHandler = null)
     {
         return $this->auth->getIssuer();
     }

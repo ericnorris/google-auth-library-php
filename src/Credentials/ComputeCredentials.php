@@ -322,7 +322,7 @@ class ComputeCredentials implements
      * @param ClientInterface $httpClient callback which delivers psr7 request
      * @return string
      */
-    public function getClientName(ClientInterface $httpClient = null): string
+    private function getClientName(ClientInterface $httpClient = null): string
     {
         if ($this->clientName) {
             return $this->clientName;

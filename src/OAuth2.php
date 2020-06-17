@@ -33,7 +33,7 @@ use Psr\Http\Message\UriInterface;
  * - service account authorization
  * - authorization where a user already has an access token
  */
-class OAuth2 implements FetchAuthTokenInterface
+class OAuth2
 {
     private const DEFAULT_EXPIRY_SECONDS = 3600; // 1 hour
     private const DEFAULT_SKEW_SECONDS = 60; // 1 minute
@@ -1549,20 +1549,6 @@ class OAuth2 implements FetchAuthTokenInterface
         }
 
         return null;
-    }
-
-    /**
-     * Get the client ID.
-     *
-     * Alias of {@see Google\Auth\OAuth2::getClientId()}.
-     *
-     * @param callable $httpHandler
-     * @return string
-     * @access private
-     */
-    public function getClientName(callable $httpHandler = null)
-    {
-        return $this->getClientId();
     }
 
     /**

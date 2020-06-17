@@ -37,11 +37,9 @@ interface SignBlobInterface
     ): string;
 
     /**
-     * Returns the current Client Name.
+     * Returns the current Client Name required for signing blobs.
      *
-     * @param ClientInterface $httpHandler callback which delivers psr7 request, if
-     *     one is required to obtain a client name.
      * @return string
      */
-    public function getClientName(ClientInterface $httpHandler = null): string;
+    public function getClientName(): string;
 }

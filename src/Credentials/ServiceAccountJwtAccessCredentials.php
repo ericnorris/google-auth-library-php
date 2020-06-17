@@ -19,9 +19,7 @@ namespace Google\Auth\Credentials;
 
 use Google\Auth\SignBlob\ServiceAccountSignBlobTrait;
 use Google\Auth\SignBlob\SignBlobInterface;
-use Google\Auth\GetQuotaProjectInterface;
 use Google\Auth\OAuth2;
-use Google\Auth\ProjectIdProviderInterface;
 
 /**
  * Authenticates requests using Google's Service Account credentials via
@@ -34,9 +32,7 @@ use Google\Auth\ProjectIdProviderInterface;
  */
 class ServiceAccountJwtAccessCredentials implements
     CredentialsInterface,
-    GetQuotaProjectInterface,
-    SignBlobInterface,
-    ProjectIdProviderInterface
+    SignBlobInterface
 {
     use CredentialsTrait, ServiceAccountSignBlobTrait;
 
@@ -174,7 +170,7 @@ class ServiceAccountJwtAccessCredentials implements
      * @param callable $httpHandler Not used by this credentials type.
      * @return string
      */
-    public function getClientName(callable $httpHandler = null)
+    private function getClientName(callable $httpHandler = null)
     {
         return $this->auth->getIssuer();
     }
