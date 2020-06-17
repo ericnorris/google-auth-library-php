@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-namespace Google\Auth\BlobSigner;
+namespace Google\Auth\SignBlob;
 
 use Google\Auth\HttpHandler\HttpClientCache;
 use Google\Auth\HttpHandler\HttpHandlerFactory;
@@ -26,7 +26,7 @@ use GuzzleHttp\Psr7;
  *
  * @see https://cloud.google.com/iam/docs IAM Documentation
  */
-trait IamServiceBlobSignerTrait
+trait IamServiceSignBlobTrait
 {
     /**
      * Sign a string using the IAM signBlob API.

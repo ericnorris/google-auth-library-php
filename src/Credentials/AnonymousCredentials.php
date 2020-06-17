@@ -54,15 +54,4 @@ class AnonymousCredentials implements CredentialsInterface
     {
         return null;
     }
-
-    /**
-     * Fetches the last received token. In this case, it returns the same empty string
-     * auth token.
-     *
-     * @return array
-     */
-    public function getLastReceivedToken()
-    {
-        return $this->token;
-    }
 }

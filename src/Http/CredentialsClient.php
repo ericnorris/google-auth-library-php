@@ -13,11 +13,11 @@ class CredentialsClient implements ClientInterface
     private $credentials;
 
     public function __construct(
-        ClientInterface $http,
-        CredentialsInterface $credentials
+        CredentialsInterface $credentials,
+        ClientInterface $http = null
     ) {
-        $this->http = $http;
         $this->credentials = $credentials
+        $this->http = $http ?: ClientFactory::build();
     }
 
     public function sendRequest(

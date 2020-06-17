@@ -14,24 +14,24 @@ class ApiKeyClient implements ClientInterface
     private $apiKey;
 
     public function __construct(
-        ClientInterface $http,
-        string $apiKey
+        string $apiKey,
+        ClientInterface $http = null
     ) {
-        $this->http = $http;
         $this->apiKey = $apiKey
+        $this->http = $http ?: ClientFactory::build();
     }
 
-    public function sendRequest(
+    public function send(
         RequestInterface $request,
         array $options = []
     ) {
-        return $this->http->sendRequest(
+        return $this->http->send(
             $this->applyApiKey($request)
             $options
         );
     }
 
-    public function sendRequestAsync(
+    public function sendAsync(
         RequestInterface $request,
         array $options = []
     ) {

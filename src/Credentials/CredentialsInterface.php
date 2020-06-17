@@ -24,17 +24,35 @@ use Google\Http\ClientInterface;
  */
 interface CredentialsInterface
 {
+    const X_GOOG_USER_PROJECT_HEADER = 'X-Goog-User-Project';
+
     /**
      * Fetches the auth tokens based on the current state.
      *
-     * @param callable $httpClient callback which delivers psr7 request
      * @return array a hash of auth tokens
      */
-    public function fetchAuthToken(ClientInterface $httpClient = null): array;
+    public function fetchAuthToken(): array;
 
-    public function getRequestMetadata(
-        ClientInterface $httpClient = null
-    ): array;
+    /**
+     * Returns metadata with the authorization token.
+     *
+     * @param array $metadata metadata hashmap
+     *
+     * @return array
+     */
+    public function getRequestMetadata(): array;
 
-    public function setCache(CacheInterface $cache): void;
+    /**
+     * Get the project ID.
+     *
+     * @return string|null
+     */
+    public function getProjectId(): ?string;
+
+    /**
+     * Get the quota project used for this API request
+     *
+     * @return string|null
+     */
+    public function getQuotaProject(): ?string;
 }

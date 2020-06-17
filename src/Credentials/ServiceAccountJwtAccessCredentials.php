@@ -17,8 +17,8 @@
 
 namespace Google\Auth\Credentials;
 
-use Google\Auth\BlobSigner\ServiceAccountBlobSignerTrait;
-use Google\Auth\BlobSigner\BlobSignerInterface;
+use Google\Auth\SignBlob\ServiceAccountSignBlobTrait;
+use Google\Auth\SignBlob\SignBlobInterface;
 use Google\Auth\GetQuotaProjectInterface;
 use Google\Auth\OAuth2;
 use Google\Auth\ProjectIdProviderInterface;
@@ -38,7 +38,7 @@ class ServiceAccountJwtAccessCredentials implements
     SignBlobInterface,
     ProjectIdProviderInterface
 {
-    use CredentialsTrait, ServiceAccountBlobSignerTrait;
+    use CredentialsTrait, ServiceAccountSignBlobTrait;
 
     /**
      * The OAuth2 instance used to conduct authorization.

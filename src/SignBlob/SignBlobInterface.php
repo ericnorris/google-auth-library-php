@@ -15,12 +15,12 @@
  * limitations under the License.
  */
 
-namespace Google\Auth\BlobSigner;
+namespace Google\Auth\SignBlob;
 
 /**
  * Describes a class which supports signing arbitrary strings.
  */
-interface BlobSignerInterface
+interface SignBlobInterface
 {
     /**
      * Sign a string using the method which is best for a given credentials type.

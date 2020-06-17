@@ -22,7 +22,7 @@ use Google\Auth\Http\ClientFactory;
 use Google\Auth\HttpHandler\HttpClientCache;
 use Google\Auth\HttpHandler\HttpHandlerFactory;
 use Google\Auth\ProjectIdProviderInterface;
-use Google\Auth\BlobSigner\BlobSignerInterface;
+use Google\Auth\SignBlob\SignBlobInterface;
 use GuzzleHttp\Exception\ClientException;
 use GuzzleHttp\Exception\RequestException;
 use GuzzleHttp\Exception\ServerException;
@@ -35,29 +35,19 @@ use InvalidArgumentException;
  * It can be used to authorize requests using the AuthTokenMiddleware, but will
  * only succeed if being run on GCE:
  *
- *   use Google\Auth\Credentials\GCECredentials;
- *   use Google\Auth\Middleware\AuthTokenMiddleware;
- *   use GuzzleHttp\Client;
- *   use GuzzleHttp\HandlerStack;
+ *   use Google\Auth\Credentials\ComputeCredentials;
+ *   use Google\Auth\Http\CredentialsClient;
+ *   use Psr\Http\Message\Request;
  *
- *   $gce = new GCECredentials();
- *   $middleware = new AuthTokenMiddleware($gce);
- *   $stack = HandlerStack::create();
- *   $stack->push($middleware);
+ *   $gce = new ComputeCredentials();
+ *   $http = new CredentialsClient($gce);
  *
- *   $client = new Client([
- *      'handler' => $stack,
- *      'base_uri' => 'https://www.googleapis.com/taskqueue/v1beta2/projects/',
- *      'auth' => 'google_auth'
- *   ]);
- *
- *   $res = $client->get('myproject/taskqueues/myqueue');
+ *   $url = 'https://www.googleapis.com/taskqueue/v1beta2/projects';
+ *   $res = $http->send(new Request('GET', $url));
  */
 class ComputeCredentials implements
     CredentialsInterface,
-    SignBlobInterface,
-    ProjectIdProviderInterface,
-    GetQuotaProjectInterface
+    SignBlobInterface
 {
     use CredentialsTrait, IamServiceSignerTrait {
         IamServiceSignerTrait::signBlob as iamSignBlob
@@ -125,10 +115,6 @@ class ComputeCredentials implements
      */
     private $isOnGce = false;
 
-    /**
-     * Result of fetchAuthToken.
-     */
-    protected $lastReceivedToken;
 
     /**
      * @var string|null
@@ -176,6 +162,8 @@ class ComputeCredentials implements
             'targetAudience' => null,
             'quotaProject' => null,
             'httpClient' => null,
+            'cache' => null,
+            'lifetime' => null,
         ];
 
         if ($options['scope'] && $options['targetAudience']) {
