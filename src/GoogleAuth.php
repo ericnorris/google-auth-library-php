@@ -101,13 +101,13 @@ class GoogleAuth
      * @return CredentialsInterface
      * @throws DomainException if no implementation can be obtained.
      */
-    public function getCredentials(array $options = []): CredentialsInterface
+    public function makeCredentials(array $options = []): CredentialsInterface
     {
         $options += [
             'scope' => null,
             'targetAudience' => null,
             'httpHandler' => null,
-            'cacheConfig' => null,
+            'lifetime' => null,
             'cache' => null,
             'quotaProject' => null,
         ];
@@ -159,10 +159,6 @@ class GoogleAuth
             );
         }
 
-        if (!is_null($options['cache'])) {
-            $creds = new FetchAuthTokenCache($creds, $options['cacheConfig'], $options['cache']);
-        }
-
         return $creds;
     }
 
@@ -175,12 +171,7 @@ class GoogleAuth
      * @param callable $tokenCallback (optional) function to be called when a new token is fetched.
      * @return \GuzzleHttp\Client
      */
-    public static function makeClient(
-        FetchAuthTokenInterface $fetcher,
-        array $httpClientOptions = [],
-        callable $httpHandler = null,
-        callable $tokenCallback = null
-    ): ClientInterface {
+    public function makeHttpClient(array $options = []): ClientInterface {
         $version = \GuzzleHttp\ClientInterface::VERSION;
 
         switch ($version[0]) {
@@ -318,7 +309,7 @@ class GoogleAuth
      *
      * @return array|null
      */
-    public static function fromEnv(): ?array
+    private static function fromEnv(): ?array
     {
         $path = getenv(self::ENV_VAR);
         if (empty($path)) {
@@ -344,7 +335,7 @@ class GoogleAuth
      *
      * @return array|null
      */
-    public static function fromWellKnownFile(): ?array
+    private static function fromWellKnownFile(): ?array
     {
         $rootEnv = self::isOnWindows() ? 'APPDATA' : 'HOME';
         $path = [getenv($rootEnv)];

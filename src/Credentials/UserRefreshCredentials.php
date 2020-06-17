@@ -58,8 +58,8 @@ class UserRefreshCredentials implements
      *   as an associative array
      */
     public function __construct(
-        string $scope,
-        string $jsonKey
+        string $jsonKey,
+        array $options = []
     ) {
         if (is_string($jsonKey)) {
             if (!file_exists($jsonKey)) {
@@ -89,7 +89,7 @@ class UserRefreshCredentials implements
             'clientId' => $jsonKey['client_id'],
             'clientSecret' => $jsonKey['client_secret'],
             'refresh_token' => $jsonKey['refresh_token'],
-            'scope' => $scope,
+            'scope' => $options['scope'],
             'tokenCredentialUri' => self::TOKEN_CREDENTIAL_URI,
         ]);
         if (array_key_exists('quota_project', $jsonKey)) {
