@@ -1424,12 +1424,12 @@ class OAuth2
      *
      * @return bool
      */
-    public function isExpired()
+    public function isExpired(): bool
     {
         $expiration = $this->getExpiresAt();
         $now = time();
 
-        return !is_null($expiration) && $now >= $expiration;
+        return is_null($expiration) || $now >= $expiration;
     }
 
     /**

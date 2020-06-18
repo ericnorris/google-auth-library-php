@@ -25,9 +25,9 @@ use Google\Auth\OAuth2;
  *
  * This class allows authorizing requests from user refresh tokens.
  *
- * This the end of the result of a 3LO flow.  E.g, the end result of
+ * This the end of the result of a 3LO flow using the `gcloud` CLI.
  * 'gcloud auth login' saves a file with these contents in well known
- * location
+ * location.
  *
  * @see [Application Default Credentials](http://goo.gl/mkAHpZ)
  */
