@@ -28,7 +28,7 @@ use Prophecy\Argument;
  * @group credentials
  * @group credentials-gce
  */
-class GCECredentialsTest extends TestCase
+class ComputeCredentialsTest extends TestCase
 {
     public function testOnGceMetadataFlavorHeader()
     {
@@ -237,10 +237,10 @@ class GCECredentialsTest extends TestCase
         ]);
 
         $creds = new GCECredentials;
-        $this->assertEquals($expected, $creds->getClientName($httpHandler));
+        $this->assertEquals($expected, $creds->getClientEmail($httpHandler));
 
         // call again to test cached value
-        $this->assertEquals($expected, $creds->getClientName($httpHandler));
+        $this->assertEquals($expected, $creds->getClientEmail($httpHandler));
     }
 
     public function testGetClientNameShouldBeEmptyIfNotOnGCE()
@@ -253,7 +253,7 @@ class GCECredentialsTest extends TestCase
         ]);
 
         $creds = new GCECredentials;
-        $this->assertEquals('', $creds->getClientName($httpHandler));
+        $this->assertEquals('', $creds->getClientEmail($httpHandler));
     }
 
     public function testSignBlob()

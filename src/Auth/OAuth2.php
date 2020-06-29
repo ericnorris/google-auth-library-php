@@ -17,6 +17,7 @@
 
 namespace Google\Auth;
 
+use Firebase\JWT\JWT;
 use Google\Auth\HttpHandler\HttpClientCache;
 use Google\Auth\HttpHandler\HttpHandlerFactory;
 use GuzzleHttp\Psr7;
@@ -395,7 +396,7 @@ class OAuth2
             return null;
         }
 
-        $resp = $this->jwtDecode($idToken, $publicKey, $allowed_algs);
+        $resp = JWT::decode($idToken, $publicKey, $allowed_algs);
         if (!property_exists($resp, 'aud')) {
             throw new \DomainException('No audience found the id token');
         }
@@ -445,7 +446,7 @@ class OAuth2
         }
         $assertion += $this->getAdditionalClaims();
 
-        return $this->jwtEncode(
+        return JWT::encode(
             $assertion,
             $this->getSigningKey(),
             $this->getSigningAlgorithm(),
@@ -1343,7 +1344,7 @@ class OAuth2
      * Gets the set of parameters used by extension when using an extension
      * grant type.
      */
-    public function getExtensionParams()
+    public function getExtensionParams(): array
     {
         return $this->extensionParams;
     }
@@ -1354,7 +1355,7 @@ class OAuth2
      *
      * @param $extensionParams
      */
-    public function setExtensionParams($extensionParams)
+    public function setextensionParams(array $extensionParams)
     {
         $this->extensionParams = $extensionParams;
     }
@@ -1362,7 +1363,7 @@ class OAuth2
     /**
      * Gets the number of seconds assertions are valid for.
      */
-    public function getExpiry()
+    public function getExpiry(): ?int
     {
         return $this->expiry;
     }
@@ -1372,7 +1373,7 @@ class OAuth2
      *
      * @param int $expiry
      */
-    public function setExpiry($expiry)
+    public function setExpiry(int $expiry): void
     {
         $this->expiry = $expiry;
     }
@@ -1380,7 +1381,7 @@ class OAuth2
     /**
      * Gets the lifetime of the access token in seconds.
      */
-    public function getExpiresIn()
+    public function getExpiresIn(): ?int
     {
         return $this->expiresIn;
     }
@@ -1390,7 +1391,7 @@ class OAuth2
      *
      * @param int $expiresIn
      */
-    public function setExpiresIn($expiresIn)
+    public function setExpiresIn(int $expiresIn): void
     {
         if (is_null($expiresIn)) {
             $this->expiresIn = null;
@@ -1404,9 +1405,9 @@ class OAuth2
     /**
      * Gets the time the current access token expires at.
      *
-     * @return int
+     * @return int|null
      */
-    public function getExpiresAt()
+    public function getExpiresAt(): ?int
     {
         if (!is_null($this->expiresAt)) {
             return $this->expiresAt;
@@ -1437,15 +1438,17 @@ class OAuth2
      *
      * @param int $expiresAt
      */
-    public function setExpiresAt($expiresAt)
+    public function setExpiresAt(int $expiresAt): void
     {
         $this->expiresAt = $expiresAt;
     }
 
     /**
      * Gets the time the current access token was issued at.
+     *
+     * @return int|null
      */
-    public function getIssuedAt()
+    public function getIssuedAt(): ?int
     {
         return $this->issuedAt;
     }
@@ -1455,15 +1458,17 @@ class OAuth2
      *
      * @param int $issuedAt
      */
-    public function setIssuedAt($issuedAt)
+    public function setIssuedAt(int $issuedAt): void
     {
         $this->issuedAt = $issuedAt;
     }
 
     /**
      * Gets the current access token.
+     *
+     * @return string|null
      */
-    public function getAccessToken()
+    public function getAccessToken(): ?string
     {
         return $this->accessToken;
     }
@@ -1471,17 +1476,19 @@ class OAuth2
     /**
      * Sets the current access token.
      *
-     * @param string $accessToken
+     * @param string|null $accessToken
      */
-    public function setAccessToken($accessToken)
+    public function setAccessToken(string $accessToken = null): void
     {
         $this->accessToken = $accessToken;
     }
 
     /**
      * Gets the current ID token.
+     *
+     * @return string|null
      */
-    public function getIdToken()
+    public function getIdToken(): ?string
     {
         return $this->idToken;
     }
@@ -1489,17 +1496,19 @@ class OAuth2
     /**
      * Sets the current ID token.
      *
-     * @param $idToken
+     * @param string|null $idToken
      */
-    public function setIdToken($idToken)
+    public function setIdToken(string $idToken = null): void
     {
         $this->idToken = $idToken;
     }
 
     /**
      * Gets the refresh token associated with the current access token.
+     *
+     * @return string|null
      */
-    public function getRefreshToken()
+    public function getRefreshToken(): ?string
     {
         return $this->refreshToken;
     }
@@ -1507,21 +1516,11 @@ class OAuth2
     /**
      * Sets the refresh token associated with the current access token.
      *
-     * @param $refreshToken
+     * @param string|null $refreshToken
      */
-    public function setRefreshToken($refreshToken)
+    public function setRefreshToken(string $refreshToken = null): void
     {
         $this->refreshToken = $refreshToken;
-    }
-
-    /**
-     * Sets additional claims to be included in the JWT token
-     *
-     * @param array $additionalClaims
-     */
-    public function setAdditionalClaims(array $additionalClaims)
-    {
-        $this->additionalClaims = $additionalClaims;
     }
 
     /**
@@ -1529,9 +1528,19 @@ class OAuth2
      *
      * @return array
      */
-    public function getAdditionalClaims()
+    public function getAdditionalClaims(): array
     {
         return $this->additionalClaims;
+    }
+
+    /**
+     * Sets additional claims to be included in the JWT token
+     *
+     * @param array $additionalClaims
+     */
+    public function setAdditionalClaims(array $additionalClaims): void
+    {
+        $this->additionalClaims = $additionalClaims;
     }
 
     /**
@@ -1552,12 +1561,10 @@ class OAuth2
     }
 
     /**
-     * @todo handle uri as array
-     *
      * @param string $uri
      * @return null|UriInterface
      */
-    private function coerceUri($uri)
+    private function coerceUri(string $uri): ?UriInterface
     {
         if (is_null($uri)) {
             return;
@@ -1567,42 +1574,13 @@ class OAuth2
     }
 
     /**
-     * @param string $idToken
-     * @param string|array|null $publicKey
-     * @param array $allowedAlgs
-     * @return object
-     */
-    private function jwtDecode($idToken, $publicKey, $allowedAlgs)
-    {
-        if (class_exists('Firebase\JWT\JWT')) {
-            return \Firebase\JWT\JWT::decode($idToken, $publicKey, $allowedAlgs);
-        }
-
-        return \JWT::decode($idToken, $publicKey, $allowedAlgs);
-    }
-
-    private function jwtEncode($assertion, $signingKey, $signingAlgorithm, $signingKeyId = null)
-    {
-        if (class_exists('Firebase\JWT\JWT')) {
-            return \Firebase\JWT\JWT::encode(
-                $assertion,
-                $signingKey,
-                $signingAlgorithm,
-                $signingKeyId
-            );
-        }
-
-        return \JWT::encode($assertion, $signingKey, $signingAlgorithm, $signingKeyId);
-    }
-
-    /**
      * Determines if the URI is absolute based on its scheme and host or path
      * (RFC 3986).
      *
      * @param string $uri
      * @return bool
      */
-    private function isAbsoluteUri($uri)
+    private function isAbsoluteUri(strring $uri): bool
     {
         $uri = $this->coerceUri($uri);
 
@@ -1611,9 +1589,8 @@ class OAuth2
 
     /**
      * @param array $params
-     * @return array
      */
-    private function addClientCredentials(&$params)
+    private function addClientCredentials(array &$params): void
     {
         $clientId = $this->getClientId();
         $clientSecret = $this->getClientSecret();

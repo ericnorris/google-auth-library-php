@@ -31,26 +31,20 @@ trait ServiceAccountSignBlobTrait
      * @param bool $forceOpenssl Whether to use OpenSSL regardless of
      *        whether phpseclib is installed. **Defaults to** `false`.
      * @return string
+     * @throws \RuntimeException
      */
-    public function signBlob($stringToSign, $forceOpenssl = false)
-    {
+    public function signBlob(
+        string $stringToSign,
+        bool $forceOpenssl = false
+    ): string {
         $privateKey = $this->auth->getSigningKey();
 
-        $signedString = '';
-        if (class_exists('\\phpseclib\\Crypt\\RSA') && !$forceOpenssl) {
-            $rsa = new RSA;
-            $rsa->loadKey($privateKey);
-            $rsa->setSignatureMode(RSA::SIGNATURE_PKCS1);
-            $rsa->setHash('sha256');
-
-            $signedString = $rsa->sign($stringToSign);
-        } elseif (extension_loaded('openssl')) {
-            openssl_sign($stringToSign, $signedString, $privateKey, 'sha256WithRSAEncryption');
-        } else {
-            // @codeCoverageIgnoreStart
+        if (!extension_loaded('openssl')) {
             throw new \RuntimeException('OpenSSL is not installed.');
         }
-        // @codeCoverageIgnoreEnd
+        $signedString = '';
+        openssl_sign($stringToSign, $signedString, $privateKey, 'sha256WithRSAEncryption');
+
 
         return base64_encode($signedString);
     }

@@ -2,6 +2,11 @@
 
 namespace Google\Auth\Credentials;
 
+/**
+ * Trait for shared functionality between credentials classes.
+ *
+ * @internal
+ */
 trait CredentialsTrait
 {
     /**
@@ -19,6 +24,17 @@ trait CredentialsTrait
         }
 
         return [];
+    }
+
+    /**
+     *
+     */
+    private function validateOptions(array $k)
+    {
+        $cacheItem = $this->cache->getItem($key);
+        if ($cacheItem->isHit()) {
+            return $cacheItem->get();
+        }
     }
 
     /**

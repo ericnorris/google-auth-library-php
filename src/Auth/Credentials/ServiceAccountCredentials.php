@@ -244,7 +244,7 @@ class ServiceAccountCredentials implements
      * @param callable $httpHandler Not used by this credentials type.
      * @return string
      */
-    private function getClientName(callable $httpHandler = null)
+    private function getClientEmail(callable $httpHandler = null)
     {
         return $this->auth->getIssuer();
     }

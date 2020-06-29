@@ -76,7 +76,7 @@ class ComputeCredentials implements
     /**
      * The metadata path of the client ID.
      */
-    const CLIENT_ID_URI_PATH = 'v1/instance/service-accounts/default/email';
+    const CLIENT_EMAIL_URI_PATH = 'v1/instance/service-accounts/default/email';
 
     /**
      * The metadata path of the project ID.
@@ -119,7 +119,7 @@ class ComputeCredentials implements
     /**
      * @var string|null
      */
-    private $clientName;
+    private $clientEmail;
 
     /**
      * @var string|null
@@ -213,11 +213,11 @@ class ComputeCredentials implements
      *
      * @return string
      */
-    public static function getClientNameUri(): string
+    public static function getClientEmailUri(): string
     {
         $base = 'http://' . self::METADATA_IP . '/computeMetadata/';
 
-        return $base . self::CLIENT_ID_URI_PATH;
+        return $base . self::CLIENT_EMAIL_URI_PATH;
     }
 
     /**
@@ -322,19 +322,19 @@ class ComputeCredentials implements
      * @param ClientInterface $httpClient callback which delivers psr7 request
      * @return string
      */
-    private function getClientName(ClientInterface $httpClient = null): string
+    private function getClientEmail(ClientInterface $httpClient = null): string
     {
-        if ($this->clientName) {
-            return $this->clientName;
+        if ($this->clientEmail) {
+            return $this->clientEmail;
         }
 
         if (!$this->isOnGce($httpClient)) {
             return '';
         }
 
-        return $this->clientName = $this->getFromMetadata(
+        return $this->clientEmail = $this->getFromMetadata(
             $httpClient ?: $this->httpClient,
-            self::getClientNameUri()
+            self::getClientEmailUri()
         );
     }
 
@@ -352,12 +352,9 @@ class ComputeCredentials implements
      */
     public function signBlob($stringToSign, $forceOpenSsl = false)
     {
-        $email = $this->getClientName();
+        $email = $this->getClientEmail();
 
-        $previousToken = $this->getLastReceivedToken();
-        $accessToken = $previousToken
-            ? $previousToken['access_token']
-            : $this->fetchAuthToken()['access_token'];
+        $accessToken = $this->fetchAuthToken()['access_token'];
 
         return $this->iamSignBlob(
             $this->httpClient,

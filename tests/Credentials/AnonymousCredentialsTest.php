@@ -24,7 +24,7 @@ use PHPUnit\Framework\TestCase;
  * @group credentials
  * @group credentials-insecure
  */
-class InsecureCredentialsTest extends TestCase
+class AnonymousCredentialsTest extends TestCase
 {
     public function testFetchAuthToken()
     {

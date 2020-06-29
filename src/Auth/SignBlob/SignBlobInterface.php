@@ -37,9 +37,9 @@ interface SignBlobInterface
     ): string;
 
     /**
-     * Returns the current Client Name required for signing blobs.
+     * Returns the client email required for signing blobs.
      *
      * @return string
      */
-    public function getClientName(): string;
+    public function getClientEmail(): string;
 }

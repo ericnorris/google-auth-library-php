@@ -155,7 +155,7 @@ class FetchAuthTokenCacheTest extends BaseTest
     {
         $name = 'test@example.com';
 
-        $this->mockSigner->getClientName(null)
+        $this->mockSigner->getClientEmail(null)
             ->shouldBeCalled()
             ->willReturn($name);
 
@@ -165,7 +165,7 @@ class FetchAuthTokenCacheTest extends BaseTest
             $this->mockCache->reveal()
         );
 
-        $this->assertEquals($name, $fetcher->getClientName());
+        $this->assertEquals($name, $fetcher->getClientEmail());
     }
 
     public function testSignBlob()
