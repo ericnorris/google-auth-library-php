@@ -26,15 +26,9 @@ interface SignBlobInterface
      * Sign a string using the method which is best for a given credentials type.
      *
      * @param string $stringToSign The string to sign.
-     * @param bool $forceOpenssl Require use of OpenSSL for local signing. Does
-     *        not apply to signing done using external services. **Defaults to**
-     *        `false`.
      * @return string The resulting signature. Value should be base64-encoded.
      */
-    public function signBlob(
-        string $stringToSign,
-        bool $forceOpenssl = false
-    ): string;
+    public function signBlob(string $stringToSign): string;
 
     /**
      * Returns the client email required for signing blobs.

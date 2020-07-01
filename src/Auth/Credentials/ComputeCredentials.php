@@ -53,7 +53,7 @@ class ComputeCredentials implements
         IamServiceSignerTrait::signBlob as iamSignBlob
     }
 
-    const CACHE_KEY = 'GOOGLE_AUTH_PHP_GCE';
+    private const CACHE_KEY = 'GOOGLE_AUTH_PHP_GCE';
 
     /**
      * The metadata IP address on appengine instances.
@@ -61,32 +61,32 @@ class ComputeCredentials implements
      * The IP is used instead of the domain 'metadata' to avoid slow responses
      * when not on Compute Engine.
      */
-    const METADATA_IP = '169.254.169.254';
+    private const METADATA_IP = '169.254.169.254';
 
     /**
      * The metadata path of the default token.
      */
-    const TOKEN_URI_PATH = 'v1/instance/service-accounts/default/token';
+    private const TOKEN_URI_PATH = 'v1/instance/service-accounts/default/token';
 
     /**
      * The metadata path of the default id token.
      */
-    const ID_TOKEN_URI_PATH = 'v1/instance/service-accounts/default/identity';
+    private const ID_TOKEN_URI_PATH = 'v1/instance/service-accounts/default/identity';
 
     /**
      * The metadata path of the client ID.
      */
-    const CLIENT_EMAIL_URI_PATH = 'v1/instance/service-accounts/default/email';
+    private const CLIENT_EMAIL_URI_PATH = 'v1/instance/service-accounts/default/email';
 
     /**
      * The metadata path of the project ID.
      */
-    const PROJECT_ID_URI_PATH = 'v1/project/project-id';
+    private const PROJECT_ID_URI_PATH = 'v1/project/project-id';
 
     /**
      * The header whose presence indicates GCE presence.
      */
-    const FLAVOR_HEADER = 'Metadata-Flavor';
+    private const FLAVOR_HEADER = 'Metadata-Flavor';
 
     /**
      * Note: the explicit `timeout` and `tries` below is a workaround. The underlying
@@ -98,8 +98,8 @@ class ComputeCredentials implements
      * This allows us to limit the total ping maximum timeout to 1.5 seconds
      * for developer desktop scenarios.
      */
-    const MAX_COMPUTE_PING_TRIES = 3;
-    const COMPUTE_PING_CONNECTION_TIMEOUT_S = 0.5;
+    private const MAX_COMPUTE_PING_TRIES = 3;
+    private const COMPUTE_PING_CONNECTION_TIMEOUT_S = 0.5;
 
     /**
      * Flag used to ensure that the onGCE test is only done once;.
@@ -346,11 +346,9 @@ class ComputeCredentials implements
      * @see https://cloud.google.com/iam/credentials/reference/rest/v1/projects.serviceAccounts/signBlob SignBlob
      *
      * @param string $stringToSign The string to sign.
-     * @param bool $forceOpenSsl [optional] Does not apply to this credentials
-     *        type.
      * @return string
      */
-    public function signBlob($stringToSign, $forceOpenSsl = false)
+    public function signBlob($stringToSign)
     {
         $email = $this->getClientEmail();
 

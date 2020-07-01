@@ -515,10 +515,9 @@ class OAuth2
     /**
      * Fetches the auth tokens based on the current state.
      *
-     * @param callable $httpHandler callback which delivers psr7 request
      * @return array the response
      */
-    public function fetchAuthToken(callable $httpHandler = null)
+    public function fetchAuthToken(): array
     {
         if (is_null($httpHandler)) {
             $httpHandler = HttpHandlerFactory::build(HttpClientCache::getHttpClient());
@@ -529,23 +528,6 @@ class OAuth2
         $this->updateToken($credentials);
 
         return $credentials;
-    }
-
-    /**
-     * Obtains a key that can used to cache the results of #fetchAuthToken.
-     *
-     * The key is derived from the scopes.
-     *
-     * @return string a key that may be used to cache the auth token.
-     */
-    public function getCacheKey()
-    {
-        if (is_array($this->scope)) {
-            return implode(':', $this->scope);
-        }
-
-        // If scope has not set, return null to indicate no caching.
-        return null;
     }
 
     /**
@@ -576,18 +558,18 @@ class OAuth2
     }
 
     /**
-     * Updates an OAuth 2.0 client.
+     * Sets properties of the OAuth2 token, usually after loading from cache.
      *
      * Example:
      * ```
-     * $oauth->updateToken([
+     * $oauth->setAuthToken([
      *     'refresh_token' => 'n4E9O119d',
      *     'access_token' => 'FJQbwq9',
      *     'expires_in' => 3600
      * ]);
      * ```
      *
-     * @param array $config
+     * @param array $authToken
      *  The configuration parameters related to the token.
      *
      *  - refresh_token
@@ -609,7 +591,7 @@ class OAuth2
      *  - issued_at
      *    The timestamp that the token was issued at.
      */
-    public function updateToken(array $config)
+    public function setAuthToken(array $authToken)
     {
         $opts = array_merge([
             'extensionParams' => [],
@@ -618,10 +600,11 @@ class OAuth2
             'expires_in' => null,
             'expires_at' => null,
             'issued_at' => null,
-        ], $config);
+        ], $authToken);
 
         $this->setExpiresAt($opts['expires_at']);
         $this->setExpiresIn($opts['expires_in']);
+
         // By default, the token is issued at `Time.now` when `expiresIn` is set,
         // but this can be used to supply a more precise time.
         if (!is_null($opts['issued_at'])) {
@@ -630,6 +613,7 @@ class OAuth2
 
         $this->setAccessToken($opts['access_token']);
         $this->setIdToken($opts['id_token']);
+
         // The refresh token should only be updated if a value is explicitly
         // passed in, as some access token responses do not include a refresh
         // token.
@@ -648,9 +632,6 @@ class OAuth2
      * @param array $options [optional] Configuration options.
      * @param string $options.audience The indended recipient of the token.
      * @param string $options.issuer The intended issuer of the token.
-     * @param string $options.cacheKey The cache key of the cached certs. Defaults to
-     *        the sha1 of $certsLocation if provided, otherwise is set to
-     *        "federated_signon_certs_v3".
      * @param string $options.certsLocation The location (remote or local) from which
      *        to retrieve certificates, if not cached. This value should only be
      *        provided in limited circumstances in which you are sure of the
@@ -677,15 +658,12 @@ class OAuth2
         $certsLocation = isset($options['certsLocation'])
             ? $options['certsLocation']
             : self::FEDERATED_SIGNON_CERT_URL;
-        $cacheKey = isset($options['cacheKey'])
-            ? $options['cacheKey']
-            : $this->getCacheKeyFromCertLocation($certsLocation);
         $throwException = isset($options['throwException'])
             ? $options['throwException']
             : false; // for backwards compatibility
 
         // Check signature against each available cert.
-        $certs = $this->getCerts($certsLocation, $cacheKey, $options);
+        $certs = $this->getCerts($certsLocation, $options);
         $alg = $this->determineAlg($certs);
         if (!in_array($alg, ['RS256', 'ES256'])) {
             throw new InvalidArgumentException(

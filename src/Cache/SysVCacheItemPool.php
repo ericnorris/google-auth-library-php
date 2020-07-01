@@ -28,13 +28,13 @@ use Psr\Cache\CacheItemPoolInterface;
  */
 class SysVCacheItemPool implements CacheItemPoolInterface
 {
-    const VAR_KEY = 1;
+    private const VAR_KEY = 1;
 
-    const DEFAULT_PROJ = 'A';
+    private const DEFAULT_PROJ = 'A';
 
-    const DEFAULT_MEMSIZE = 10000;
+    private const DEFAULT_MEMSIZE = 10000;
 
-    const DEFAULT_PERM = 0600;
+    private const DEFAULT_PERM = 0600;
 
     /** @var int */
     private $sysvKey;

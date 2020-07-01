@@ -70,14 +70,14 @@ class GoogleAuth
 {
     private const TOKEN_CREDENTIAL_URI = 'https://oauth2.googleapis.com/token';
     private const TOKEN_REVOKE_URI = 'https://oauth2.googleapis.com/revoke';
-    private const ENV_VAR = 'GOOGLE_APPLICATION_CREDENTIALS';
-    private const WELL_KNOWN_PATH = 'gcloud/application_default_credentials.json';
-    private const NON_WINDOWS_WELL_KNOWN_PATH_BASE = '.config';
-    private const AUTH_METADATA_KEY = 'authorization';
     private const OIDC_CERT_URI = 'https://www.googleapis.com/oauth2/v3/certs';
     private const OIDC_ISSUERS = ['accounts.google.com', 'https://accounts.google.com'];
     private const IAP_JWK_URI = 'https://www.gstatic.com/iap/verify/public_key-jwk';
     private const IAP_ISSUERS = ['https://cloud.google.com/iap'];
+
+    private const ENV_VAR = 'GOOGLE_APPLICATION_CREDENTIALS';
+    private const WELL_KNOWN_PATH = 'gcloud/application_default_credentials.json';
+    private const NON_WINDOWS_WELL_KNOWN_PATH_BASE = '.config';
 
     /**
      * Obtains an AuthTokenMiddleware which will fetch an access token to use in

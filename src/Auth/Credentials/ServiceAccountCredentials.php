@@ -237,6 +237,17 @@ class ServiceAccountCredentials implements
     }
 
     /**
+     * Sign a string using the method which is best for a given credentials type.
+     *
+     * @param string $stringToSign The string to sign.
+     * @return string The resulting signature. Value should be base64-encoded.
+     */
+    public function signBlob(string $stringToSign): string
+    {
+        return $this->signBlobWithServiceAccount($stringToSign, $this->auth);
+    }
+
+    /**
      * Get the client name from the keyfile.
      *
      * In this case, it returns the keyfile's client_email key.
@@ -244,18 +255,8 @@ class ServiceAccountCredentials implements
      * @param callable $httpHandler Not used by this credentials type.
      * @return string
      */
-    private function getClientEmail(callable $httpHandler = null)
+    public function getClientEmail(callable $httpHandler = null)
     {
         return $this->auth->getIssuer();
-    }
-
-    /**
-     * Get the quota project used for this API request
-     *
-     * @return string|null
-     */
-    public function getQuotaProject()
-    {
-        return $this->quotaProject;
     }
 }

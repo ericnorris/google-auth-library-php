@@ -17,7 +17,7 @@
 
 namespace Google\Auth\SignBlob;
 
-use phpseclib\Crypt\RSA;
+use Google\Auth\OAuth2;
 
 /**
  * Sign a string using a Service Account private key.
@@ -28,23 +28,21 @@ trait ServiceAccountSignBlobTrait
      * Sign a string using the service account private key.
      *
      * @param string $stringToSign
-     * @param bool $forceOpenssl Whether to use OpenSSL regardless of
-     *        whether phpseclib is installed. **Defaults to** `false`.
+     * @param OAuth2 $oauth2
      * @return string
      * @throws \RuntimeException
      */
-    public function signBlob(
+    private function signBlobWithServiceAccount(
         string $stringToSign,
-        bool $forceOpenssl = false
+        OAuth2 $oauth2
     ): string {
-        $privateKey = $this->auth->getSigningKey();
+        $privateKey = $oauth2->getSigningKey();
 
         if (!extension_loaded('openssl')) {
             throw new \RuntimeException('OpenSSL is not installed.');
         }
         $signedString = '';
         openssl_sign($stringToSign, $signedString, $privateKey, 'sha256WithRSAEncryption');
-
 
         return base64_encode($signedString);
     }
