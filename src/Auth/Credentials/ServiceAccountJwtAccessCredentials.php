@@ -110,7 +110,7 @@ class ServiceAccountJwtAccessCredentials implements
 
         $access_token = $this->oauth2->toJwt();
 
-        return array('access_token' => $access_token);
+        return ['access_token' => $access_token];
     }
 
     /**

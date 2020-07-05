@@ -42,24 +42,24 @@ class OAuth2
     /**
      * TODO: determine known methods from the keys of JWT::methods.
      */
-    private static $knownSigningAlgorithms = array(
+    private static $knownSigningAlgorithms = [
         'HS256',
         'HS512',
         'HS384',
         'RS256',
-    );
+    ];
 
     /**
      * The well known grant types.
      *
      * @var array
      */
-    private static $knownGrantTypes = array(
+    private static $knownGrantTypes = [
         'authorization_code',
         'refresh_token',
         'password',
         'client_credentials',
-    );
+    ];
 
     /**
      * - authorizationUri
@@ -363,48 +363,6 @@ class OAuth2
     }
 
     /**
-     * Verifies the idToken if present.
-     *
-     * - if none is present, return null
-     * - if present, but invalid, raises DomainException.
-     * - otherwise returns the payload in the idtoken as a PHP object.
-     *
-     * The behavior of this method varies depending on the version of
-     * `firebase/php-jwt` you are using. In versions lower than 3.0.0, if
-     * `$publicKey` is null, the key is decoded without being verified. In
-     * newer versions, if a public key is not given, this method will throw an
-     * `\InvalidArgumentException`.
-     *
-     * @param string $publicKey The public key to use to authenticate the token
-     * @param array $allowed_algs List of supported verification algorithms
-     * @throws \DomainException if the token is missing an audience.
-     * @throws \DomainException if the audience does not match the one set in
-     *         the OAuth2 class instance.
-     * @throws \UnexpectedValueException If the token is invalid
-     * @throws SignatureInvalidException If the signature is invalid.
-     * @throws BeforeValidException If the token is not yet valid.
-     * @throws ExpiredException If the token has expired.
-     * @return null|object
-     */
-    public function verifyIdToken($publicKey = null, $allowed_algs = array())
-    {
-        $idToken = $this->getIdToken();
-        if (is_null($idToken)) {
-            return null;
-        }
-
-        $resp = JWT::decode($idToken, $publicKey, $allowed_algs);
-        if (!property_exists($resp, 'aud')) {
-            throw new \DomainException('No audience found the id token');
-        }
-        if ($resp->aud != $this->getAudience()) {
-            throw new \DomainException('Wrong audience present in the id token');
-        }
-
-        return $resp;
-    }
-
-    /**
      * Obtains the encoded jwt from the instance data.
      *
      * @param array $config array optional configuration parameters
@@ -480,7 +438,7 @@ class OAuth2
         }
 
         $grantType = $this->getGrantType();
-        $params = array('grant_type' => $grantType);
+        $params = ['grant_type' => $grantType];
         switch ($grantType) {
             case 'authorization_code':
                 $params['code'] = $this->getCode();
@@ -538,7 +496,7 @@ class OAuth2
         if ($resp->hasHeader('Content-Type') &&
             $resp->getHeaderLine('Content-Type') == 'application/x-www-form-urlencoded'
         ) {
-            $res = array();
+            $res = [];
             parse_str($body, $res);
 
             return $res;
