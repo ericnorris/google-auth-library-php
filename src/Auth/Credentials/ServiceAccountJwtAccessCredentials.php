@@ -17,7 +17,7 @@
 
 namespace Google\Auth\Credentials;
 
-use Google\Auth\SignBlob\ServiceAccountSignBlobTrait;
+use Google\Auth\SignBlob\ServiceAccountApiSignBlobTrait;
 use Google\Auth\SignBlob\SignBlobInterface;
 use Google\Auth\OAuth2;
 
@@ -34,19 +34,21 @@ class ServiceAccountJwtAccessCredentials implements
     CredentialsInterface,
     SignBlobInterface
 {
-    use CredentialsTrait, ServiceAccountSignBlobTrait;
+    use CredentialsTrait;
+    use PrivateKeySignBlobTrait;
+    use ServiceAccountApiSignBlobTrait;
 
     /**
      * The OAuth2 instance used to conduct authorization.
      *
      * @var OAuth2
      */
-    protected $auth;
+    private $oauth2;
 
     /**
      * The quota project associated with the JSON credentials
      */
-    protected $quotaProject;
+    private $quotaProject;
 
     /**
      * Create a new ServiceAccountJwtAccessCredentials.
@@ -78,7 +80,7 @@ class ServiceAccountJwtAccessCredentials implements
         if (array_key_exists('quota_project', $jsonKey)) {
             $this->quotaProject = (string) $jsonKey['quota_project'];
         }
-        $this->auth = new OAuth2([
+        $this->oauth2 = new OAuth2([
             'issuer' => $jsonKey['client_email'],
             'sub' => $jsonKey['client_email'],
             'signingAlgorithm' => 'RS256',
@@ -88,57 +90,27 @@ class ServiceAccountJwtAccessCredentials implements
         $this->projectId = isset($jsonKey['project_id'])
             ? $jsonKey['project_id']
             : null;
-    }
 
-    /**
-     * Updates metadata with the authorization token.
-     *
-     * @param array $metadata metadata hashmap
-     * @param string $authUri optional auth uri
-     * @param callable $httpHandler callback which delivers psr7 request
-     * @return array updated metadata hashmap
-     */
-    public function updateMetadata(
-        $metadata,
-        $authUri = null,
-        callable $httpHandler = null
-    ) {
-        if (empty($authUri)) {
-            return $metadata;
-        }
-
-        $this->auth->setAudience($authUri);
-
-        return parent::updateMetadata($metadata, $authUri, $httpHandler);
+        $this->setHttpClientFromOptions($options['httpClient']);
     }
 
     /**
      * Implements FetchAuthTokenInterface#fetchAuthToken.
      *
-     * @param callable $httpHandler
-     *
-     * @return array|void A set of auth related metadata, containing the
+     * @return array A set of auth related metadata, containing the
      * following keys:
      *   - access_token (string)
      */
-    public function fetchAuthToken(callable $httpHandler = null)
+    public function fetchAuthToken(): array
     {
-        $audience = $this->auth->getAudience();
+        $audience = $this->oauth2->getAudience();
         if (empty($audience)) {
             return null;
         }
 
-        $access_token = $this->auth->toJwt();
+        $access_token = $this->oauth2->toJwt();
 
         return array('access_token' => $access_token);
-    }
-
-    /**
-     * @return string
-     */
-    public function getCacheKey()
-    {
-        return $this->auth->getCacheKey();
     }
 
     /**
@@ -146,10 +118,9 @@ class ServiceAccountJwtAccessCredentials implements
      *
      * Returns null if the project ID does not exist in the keyfile.
      *
-     * @param callable $httpHandler Not used by this credentials type.
      * @return string|null
      */
-    public function getProjectId(callable $httpHandler = null)
+    public function getProjectId(): ?string
     {
         return $this->projectId;
     }
@@ -159,20 +130,35 @@ class ServiceAccountJwtAccessCredentials implements
      *
      * @return string|null
      */
-    public function getQuotaProject()
+    public function getQuotaProject(): ?string
     {
         return $this->quotaProject;
     }
 
     /**
      * Sign a string using the method which is best for a given credentials type.
+     * If OpenSSL is not installed, uses the Service Account Credentials API.
      *
      * @param string $stringToSign The string to sign.
      * @return string The resulting signature. Value should be base64-encoded.
      */
     public function signBlob(string $stringToSign): string
     {
-        return $this->signBlobWithServiceAccount($stringToSign, $this->auth);
+        try {
+            return $this->signBlobWithPrivateKey(
+                $stringToSign,
+                $this->oauth2->getSigningKey()
+            );
+        } catch (\RuntimeException $e) {
+        }
+
+        $accessToken = $this->fetchAuthToken()['access_token'];
+        return $this->signBlobWithServiceAccountApi(
+            $this->httpClient,
+            $this->getClientEmail(),
+            $accessToken,
+            $stringToSign
+        );
     }
 
     /**
@@ -180,11 +166,10 @@ class ServiceAccountJwtAccessCredentials implements
      *
      * In this case, it returns the keyfile's client_email key.
      *
-     * @param callable $httpHandler Not used by this credentials type.
      * @return string
      */
-    public function getClientEmail(callable $httpHandler = null)
+    public function getClientEmail(): string
     {
-        return $this->auth->getIssuer();
+        return $this->oauth2->getIssuer();
     }
 }

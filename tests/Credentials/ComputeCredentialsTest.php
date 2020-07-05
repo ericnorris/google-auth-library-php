@@ -17,7 +17,7 @@
 
 namespace Google\Auth\Tests\Credentials;
 
-use Google\Auth\Credentials\GCECredentials;
+use Google\Auth\Credentials\ComputeCredentials;
 use Google\Auth\HttpHandler\HttpClientCache;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Psr7;
@@ -34,12 +34,12 @@ class ComputeCredentialsTest extends TestCase
     {
         $hasHeader = false;
         $dummyHandler = function ($request) use (&$hasHeader) {
-            $hasHeader = $request->getHeaderLine(GCECredentials::FLAVOR_HEADER) === 'Google';
+            $hasHeader = $request->getHeaderLine(ComputeCredentials::FLAVOR_HEADER) === 'Google';
 
-            return new Psr7\Response(200, [GCECredentials::FLAVOR_HEADER => 'Google']);
+            return new Psr7\Response(200, [ComputeCredentials::FLAVOR_HEADER => 'Google']);
         };
 
-        $onGce = GCECredentials::onGce($dummyHandler);
+        $onGce = ComputeCredentials::onGce($dummyHandler);
         $this->assertTrue($hasHeader);
         $this->assertTrue($onGce);
     }
@@ -52,7 +52,7 @@ class ComputeCredentialsTest extends TestCase
             buildResponse(400),
             buildResponse(400)
         ]);
-        $this->assertFalse(GCECredentials::onGCE($httpHandler));
+        $this->assertFalse(ComputeCredentials::onGCE($httpHandler));
     }
 
     public function testOnGCEIsFalseOnServerErrorStatus()
@@ -63,7 +63,7 @@ class ComputeCredentialsTest extends TestCase
             buildResponse(500),
             buildResponse(500)
         ]);
-        $this->assertFalse(GCECredentials::onGCE($httpHandler));
+        $this->assertFalse(ComputeCredentials::onGCE($httpHandler));
     }
 
     public function testOnGCEIsFalseOnOkStatusWithoutExpectedHeader()
@@ -71,32 +71,32 @@ class ComputeCredentialsTest extends TestCase
         $httpHandler = getHandler([
             buildResponse(200),
         ]);
-        $this->assertFalse(GCECredentials::onGCE($httpHandler));
+        $this->assertFalse(ComputeCredentials::onGCE($httpHandler));
     }
 
     public function testOnGCEIsOkIfGoogleIsTheFlavor()
     {
         $httpHandler = getHandler([
-            buildResponse(200, [GCECredentials::FLAVOR_HEADER => 'Google']),
+            buildResponse(200, [ComputeCredentials::FLAVOR_HEADER => 'Google']),
         ]);
-        $this->assertTrue(GCECredentials::onGCE($httpHandler));
+        $this->assertTrue(ComputeCredentials::onGCE($httpHandler));
     }
 
     public function testOnAppEngineFlexIsFalseByDefault()
     {
-        $this->assertFalse(GCECredentials::onAppEngineFlexible());
+        $this->assertFalse(ComputeCredentials::onAppEngineFlexible());
     }
 
     public function testOnAppEngineFlexIsTrueWhenGaeInstanceHasAefPrefix()
     {
         putenv('GAE_INSTANCE=aef-default-20180313t154438');
-        $this->assertTrue(GCECredentials::onAppEngineFlexible());
+        $this->assertTrue(ComputeCredentials::onAppEngineFlexible());
         putenv('GAE_INSTANCE');
     }
 
     public function testGetCacheKeyShouldNotBeEmpty()
     {
-        $g = new GCECredentials();
+        $g = new ComputeCredentials();
         $this->assertNotEmpty($g->getCacheKey());
     }
 
@@ -108,7 +108,7 @@ class ComputeCredentialsTest extends TestCase
             buildResponse(500),
             buildResponse(500)
         ]);
-        $g = new GCECredentials();
+        $g = new ComputeCredentials();
         $this->assertEquals(array(), $g->fetchAuthToken($httpHandler));
     }
 
@@ -120,10 +120,10 @@ class ComputeCredentialsTest extends TestCase
     {
         $notJson = '{"foo": , this is cannot be passed as json" "bar"}';
         $httpHandler = getHandler([
-            buildResponse(200, [GCECredentials::FLAVOR_HEADER => 'Google']),
+            buildResponse(200, [ComputeCredentials::FLAVOR_HEADER => 'Google']),
             buildResponse(200, [], $notJson),
         ]);
-        $g = new GCECredentials();
+        $g = new ComputeCredentials();
         $g->fetchAuthToken($httpHandler);
     }
 
@@ -136,10 +136,10 @@ class ComputeCredentialsTest extends TestCase
         ];
         $jsonTokens = json_encode($wantedTokens);
         $httpHandler = getHandler([
-            buildResponse(200, [GCECredentials::FLAVOR_HEADER => 'Google']),
+            buildResponse(200, [ComputeCredentials::FLAVOR_HEADER => 'Google']),
             buildResponse(200, [], Psr7\stream_for($jsonTokens)),
         ]);
-        $g = new GCECredentials();
+        $g = new ComputeCredentials();
         $this->assertEquals($wantedTokens, $g->fetchAuthToken($httpHandler));
         $this->assertEquals(time() + 57, $g->getLastReceivedToken()['expires_at']);
     }
@@ -151,10 +151,10 @@ class ComputeCredentialsTest extends TestCase
         $httpHandler = function ($request) use (&$timesCalled, $expectedToken) {
             $timesCalled++;
             if ($timesCalled == 1) {
-                return new Psr7\Response(200, [GCECredentials::FLAVOR_HEADER => 'Google']);
+                return new Psr7\Response(200, [ComputeCredentials::FLAVOR_HEADER => 'Google']);
             }
             $this->assertEquals(
-                '/computeMetadata/' . GCECredentials::ID_TOKEN_URI_PATH,
+                '/computeMetadata/' . ComputeCredentials::ID_TOKEN_URI_PATH,
                 $request->getUri()->getPath()
             );
             $this->assertEquals(
@@ -163,7 +163,7 @@ class ComputeCredentialsTest extends TestCase
             );
             return new Psr7\Response(200, [], Psr7\stream_for($expectedToken['id_token']));
         };
-        $g = new GCECredentials(null, null, 'a+target+audience');
+        $g = new ComputeCredentials(null, null, 'a+target+audience');
         $this->assertEquals($expectedToken, $g->fetchAuthToken($httpHandler));
         $this->assertEquals(2, $timesCalled);
     }
@@ -174,7 +174,7 @@ class ComputeCredentialsTest extends TestCase
      */
     public function testSettingBothScopeAndTargetAudienceThrowsException()
     {
-        $g = new GCECredentials(null, 'a-scope', 'a+target+audience');
+        $g = new ComputeCredentials(null, 'a-scope', 'a+target+audience');
     }
 
     /**
@@ -197,12 +197,12 @@ class ComputeCredentialsTest extends TestCase
                     return buildResponse(200, [], Psr7\stream_for('{"expires_in": 0}'));
                 });
 
-                return buildResponse(200, [GCECredentials::FLAVOR_HEADER => 'Google']);
+                return buildResponse(200, [ComputeCredentials::FLAVOR_HEADER => 'Google']);
             });
 
         HttpClientCache::setHttpClient($client->reveal());
 
-        $g = new GCECredentials(null, $scope);
+        $g = new ComputeCredentials(null, $scope);
         $g->fetchAuthToken();
         parse_str($uri->getQuery(), $query);
 
@@ -222,7 +222,7 @@ class ComputeCredentialsTest extends TestCase
 
     public function testGetLastReceivedTokenIsNullByDefault()
     {
-        $creds = new GCECredentials;
+        $creds = new ComputeCredentials;
         $this->assertNull($creds->getLastReceivedToken());
     }
 
@@ -231,12 +231,12 @@ class ComputeCredentialsTest extends TestCase
         $expected = 'foobar';
 
         $httpHandler = getHandler([
-            buildResponse(200, [GCECredentials::FLAVOR_HEADER => 'Google']),
+            buildResponse(200, [ComputeCredentials::FLAVOR_HEADER => 'Google']),
             buildResponse(200, [], Psr7\stream_for($expected)),
             buildResponse(200, [], Psr7\stream_for('notexpected'))
         ]);
 
-        $creds = new GCECredentials;
+        $creds = new ComputeCredentials;
         $this->assertEquals($expected, $creds->getClientEmail($httpHandler));
 
         // call again to test cached value
@@ -252,7 +252,7 @@ class ComputeCredentialsTest extends TestCase
             buildResponse(500)
         ]);
 
-        $creds = new GCECredentials;
+        $creds = new ComputeCredentials;
         $this->assertEquals('', $creds->getClientEmail($httpHandler));
     }
 
@@ -281,14 +281,14 @@ class ComputeCredentialsTest extends TestCase
         $client = $this->prophesize('GuzzleHttp\ClientInterface');
         $client->send(Argument::any(), Argument::any())
             ->willReturn(
-                buildResponse(200, [GCECredentials::FLAVOR_HEADER => 'Google']),
+                buildResponse(200, [ComputeCredentials::FLAVOR_HEADER => 'Google']),
                 buildResponse(200, [], Psr7\stream_for($expectedEmail)),
                 buildResponse(200, [], Psr7\stream_for(json_encode($token)))
             );
 
         HttpClientCache::setHttpClient($client->reveal());
 
-        $creds = new GCECredentials($iam->reveal());
+        $creds = new ComputeCredentials($iam->reveal());
         $signature = $creds->signBlob($stringToSign);
     }
 
@@ -323,7 +323,7 @@ class ComputeCredentialsTest extends TestCase
         $client = $this->prophesize('GuzzleHttp\ClientInterface');
         $client->send(Argument::any(), Argument::any())
             ->willReturn(
-                buildResponse(200, [GCECredentials::FLAVOR_HEADER => 'Google']),
+                buildResponse(200, [ComputeCredentials::FLAVOR_HEADER => 'Google']),
                 buildResponse(200, [], Psr7\stream_for(json_encode($token1))),
                 buildResponse(200, [], Psr7\stream_for($expectedEmail)),
                 buildResponse(200, [], Psr7\stream_for(json_encode($token2)))
@@ -331,7 +331,7 @@ class ComputeCredentialsTest extends TestCase
 
         HttpClientCache::setHttpClient($client->reveal());
 
-        $creds = new GCECredentials($iam->reveal());
+        $creds = new ComputeCredentials($iam->reveal());
         // cache a token
         $creds->fetchAuthToken();
 
@@ -350,14 +350,14 @@ class ComputeCredentialsTest extends TestCase
         $client = $this->prophesize('GuzzleHttp\ClientInterface');
         $client->send(Argument::any(), Argument::any())
             ->willReturn(
-                buildResponse(200, [GCECredentials::FLAVOR_HEADER => 'Google']),
+                buildResponse(200, [ComputeCredentials::FLAVOR_HEADER => 'Google']),
                 buildResponse(200, [], Psr7\stream_for($expected)),
                 buildResponse(200, [], Psr7\stream_for('notexpected'))
             );
 
         HttpClientCache::setHttpClient($client->reveal());
 
-        $creds = new GCECredentials;
+        $creds = new ComputeCredentials;
         $this->assertEquals($expected, $creds->getProjectId());
 
         // call again to test cached value
@@ -383,7 +383,7 @@ class ComputeCredentialsTest extends TestCase
         HttpClientCache::setHttpClient($client->reveal());
 
 
-        $creds = new GCECredentials;
+        $creds = new ComputeCredentials;
         $this->assertNull($creds->getProjectId());
     }
 }

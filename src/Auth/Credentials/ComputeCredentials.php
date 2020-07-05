@@ -23,6 +23,7 @@ use Google\Auth\HttpHandler\HttpClientCache;
 use Google\Auth\HttpHandler\HttpHandlerFactory;
 use Google\Auth\ProjectIdProviderInterface;
 use Google\Auth\SignBlob\SignBlobInterface;
+use Google\Auth\SignBlob\ServiceAccountApiSignBlobTrait;
 use GuzzleHttp\Exception\ClientException;
 use GuzzleHttp\Exception\RequestException;
 use GuzzleHttp\Exception\ServerException;
@@ -30,7 +31,7 @@ use GuzzleHttp\Psr7\Request;
 use InvalidArgumentException;
 
 /**
- * GCECredentials supports authorization on Google Compute Engine.
+ * ComputeCredentials supports authorization on Google Compute Engine.
  *
  * It can be used to authorize requests using the AuthTokenMiddleware, but will
  * only succeed if being run on GCE:
@@ -49,9 +50,7 @@ class ComputeCredentials implements
     CredentialsInterface,
     SignBlobInterface
 {
-    use CredentialsTrait, IamServiceSignerTrait {
-        IamServiceSignerTrait::signBlob as iamSignBlob
-    }
+    use CredentialsTrait, ServiceAccountApiSignBlobTrait;
 
     private const CACHE_KEY = 'GOOGLE_AUTH_PHP_GCE';
 
@@ -66,7 +65,7 @@ class ComputeCredentials implements
     /**
      * The metadata path of the default token.
      */
-    private const TOKEN_URI_PATH = 'v1/instance/service-accounts/default/token';
+    private const TOKEN_URI_PATH = 'http': 'v1/instance/service-accounts/default/token';
 
     /**
      * The metadata path of the default id token.
@@ -87,19 +86,6 @@ class ComputeCredentials implements
      * The header whose presence indicates GCE presence.
      */
     private const FLAVOR_HEADER = 'Metadata-Flavor';
-
-    /**
-     * Note: the explicit `timeout` and `tries` below is a workaround. The underlying
-     * issue is that resolving an unknown host on some networks will take
-     * 20-30 seconds; making this timeout short fixes the issue, but
-     * could lead to false negatives in the event that we are on GCE, but
-     * the metadata resolution was particularly slow. The latter case is
-     * "unlikely" since the expected 4-nines time is about 0.5 seconds.
-     * This allows us to limit the total ping maximum timeout to 1.5 seconds
-     * for developer desktop scenarios.
-     */
-    private const MAX_COMPUTE_PING_TRIES = 3;
-    private const COMPUTE_PING_CONNECTION_TIMEOUT_S = 0.5;
 
     /**
      * Flag used to ensure that the onGCE test is only done once;.
@@ -142,11 +128,6 @@ class ComputeCredentials implements
     private $quotaProject;
 
     /**
-     * @var ClientInterface
-     */
-    private $httpClient;
-
-    /**
      * @param array $options {
      *     @type string|array $scope the scope of the access request,
      *         expressed either as an array or as a space-delimited string.
@@ -160,20 +141,18 @@ class ComputeCredentials implements
         $options += [
             'scope' => null,
             'targetAudience' => null,
-            'quotaProject' => null,
-            'httpClient' => null,
             'cache' => null,
             'lifetime' => null,
         ];
 
-        if ($options['scope'] && $options['targetAudience']) {
+        if (isset($options['scope']) && isset($options['targetAudience'])) {
             throw new InvalidArgumentException(
                 'Scope and targetAudience cannot both be supplied'
             );
         }
 
         $tokenUri = self::getTokenUri();
-        if ($options['scope']) {
+        if (isset($options['scope'])) {
             if (is_string($options['scope'])) {
                 $options['scope'] = explode(' ', $options['scope']);
             }
@@ -181,7 +160,7 @@ class ComputeCredentials implements
             $options['scope'] = implode(',', $options['scope']);
 
             $tokenUri = $tokenUri . '?scopes='. $options['scope'];
-        } elseif ($options['targetAudience']) {
+        } elseif (isset($options['targetAudience'])) {
             $tokenUri = sprintf(
                 'http://%s/computeMetadata/%s?audience=%s',
                 self::METADATA_IP,
@@ -192,8 +171,12 @@ class ComputeCredentials implements
         }
 
         $this->tokenUri = $tokenUri;
-        $this->quotaProject = $options['quotaProject'];
-        $this->httpClient = $options['httpClient'] ?: ClientFactory::build();
+
+        if (isset($options['quotaProject'])) {
+            $this->quotaProject = (string) $options['quotaProject'];
+        }
+
+        $this->setHttpClientFromOptions($options['httpClient']);
     }
 
     /**
@@ -201,7 +184,7 @@ class ComputeCredentials implements
      *
      * @return string
      */
-    public static function getTokenUri(): string
+    private static function getTokenUri(): string
     {
         $base = 'http://' . self::METADATA_IP . '/computeMetadata/';
 
@@ -213,7 +196,7 @@ class ComputeCredentials implements
      *
      * @return string
      */
-    public static function getClientEmailUri(): string
+    private static function getClientEmailUri(): string
     {
         $base = 'http://' . self::METADATA_IP . '/computeMetadata/';
 
@@ -229,44 +212,6 @@ class ComputeCredentials implements
     public static function onAppEngineFlexible(): bool
     {
         return substr(getenv('GAE_INSTANCE'), 0, 4) === 'aef-';
-    }
-
-    /**
-     * Determines if this a GCE instance, by accessing the expected metadata
-     * host.
-     *
-     * @param ClientInterface $httpClient
-     * @return bool
-     */
-    public static function onGce(ClientInterface $httpClient): bool
-    {
-        $checkUri = 'http://' . self::METADATA_IP;
-        for ($i = 1; $i <= self::MAX_COMPUTE_PING_TRIES; $i++) {
-            try {
-                // Comment from: oauth2client/client.py
-                //
-                // Note: the explicit `timeout` below is a workaround. The underlying
-                // issue is that resolving an unknown host on some networks will take
-                // 20-30 seconds; making this timeout short fixes the issue, but
-                // could lead to false negatives in the event that we are on GCE, but
-                // the metadata resolution was particularly slow. The latter case is
-                // "unlikely".
-                $resp = $httpClient->send(
-                    new Request(
-                        'GET',
-                        $checkUri,
-                        [self::FLAVOR_HEADER => 'Google']
-                    ),
-                    ['timeout' => self::COMPUTE_PING_CONNECTION_TIMEOUT_S]
-                );
-
-                return $resp->getHeaderLine(self::FLAVOR_HEADER) == 'Google';
-            } catch (ClientException $e) {
-            } catch (ServerException $e) {
-            } catch (RequestException $e) {
-            }
-        }
-        return false;
     }
 
     /**
@@ -350,15 +295,13 @@ class ComputeCredentials implements
      */
     public function signBlob($stringToSign)
     {
-        $email = $this->getClientEmail();
-
         $accessToken = $this->fetchAuthToken()['access_token'];
 
-        return $this->iamSignBlob(
-            $this->httpClient,
-            $email,
+        return $this->signBlobWithServiceAccountApi(
+            $this->getClientEmail(),
             $accessToken,
-            $stringToSign
+            $stringToSign,
+            $this->httpClient
         );
     }
 

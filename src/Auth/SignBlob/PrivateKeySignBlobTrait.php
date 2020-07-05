@@ -22,22 +22,20 @@ use Google\Auth\OAuth2;
 /**
  * Sign a string using a Service Account private key.
  */
-trait ServiceAccountSignBlobTrait
+trait PrivateKeySignBlobTrait
 {
     /**
      * Sign a string using the service account private key.
      *
      * @param string $stringToSign
-     * @param OAuth2 $oauth2
+     * @param string $privateKey
      * @return string
      * @throws \RuntimeException
      */
-    private function signBlobWithServiceAccount(
+    private function signBlobWithPrivateKey(
         string $stringToSign,
-        OAuth2 $oauth2
+        string $privateKey
     ): string {
-        $privateKey = $oauth2->getSigningKey();
-
         if (!extension_loaded('openssl')) {
             throw new \RuntimeException('OpenSSL is not installed.');
         }

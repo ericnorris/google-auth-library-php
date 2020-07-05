@@ -16,7 +16,7 @@
  */
 namespace Google\Http;
 
-use GuzzleHttp\Promise\PromiseInterface;
+use Google\Http\Promise\PromiseInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 

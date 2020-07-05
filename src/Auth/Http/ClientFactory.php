@@ -23,12 +23,19 @@ use GuzzleHttp\Client;
 class ClientFactory
 {
     /**
-     * Builds out a default http handler
-     *
+     * Builds out a default http client
+     * @param mixed $httpClient
      * @return ClientInterface
      */
-    public static function build(): ClientInterface
+    public static function build($httpClient = null): ClientInterface
     {
-        return new GuzzleClient(new Client());
+        if ($httpClient) {
+            if (!$httpClient instanceof Client) {
+                throw new \Exception('Unrecognized httpClient argument');
+            }
+        } else {
+            $httpClient = new Client();
+        }
+        return new GuzzleClient($httpClient);
     }
 }

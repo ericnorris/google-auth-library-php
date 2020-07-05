@@ -9,22 +9,22 @@ use Psr\Http\Message\ResponseInterface;
 
 class CredentialsClient implements ClientInterface
 {
-    private $http;
+    private $httpClient;
     private $credentials;
 
     public function __construct(
         CredentialsInterface $credentials,
-        ClientInterface $http = null
+        ClientInterface $httpClient = null
     ) {
         $this->credentials = $credentials
-        $this->http = $http ?: ClientFactory::build();
+        $this->httpClient = $httpClient ?: ClientFactory::build();
     }
 
     public function sendRequest(
         RequestInterface $request,
         array $options = []
     ): ResponseInterface {
-        return $this->http->sendRequest(
+        return $this->httpClient->sendRequest(
             $request->withHeaders($this->credentials->getRequestMetadata()),
             $options
         );
@@ -34,7 +34,7 @@ class CredentialsClient implements ClientInterface
         RequestInterface $request,
         array $options = []
     ): PromiseInterface {
-        return $this->http->sendRequestAsync(
+        return $this->httpClient->sendRequestAsync(
             $request->withHeaders($this->credentials->getRequestMetadata()),
             $options
         );

@@ -10,22 +10,22 @@ use Psr\Http\Message\ResponseInterface;
 
 class ApiKeyClient implements ClientInterface
 {
-    private $http;
+    private $httpClient;
     private $apiKey;
 
     public function __construct(
         string $apiKey,
-        ClientInterface $http = null
+        ClientInterface $httpClient = null
     ) {
         $this->apiKey = $apiKey
-        $this->http = $http ?: ClientFactory::build();
+        $this->httpClient = $httpClient ?: ClientFactory::build();
     }
 
     public function send(
         RequestInterface $request,
         array $options = []
     ) {
-        return $this->http->send(
+        return $this->httpClient->send(
             $this->applyApiKey($request)
             $options
         );
@@ -35,7 +35,7 @@ class ApiKeyClient implements ClientInterface
         RequestInterface $request,
         array $options = []
     ) {
-        return $this->http->sendRequestAsync(
+        return $this->httpClient->sendRequestAsync(
             $this->applyApiKey($request)
             $options
         );

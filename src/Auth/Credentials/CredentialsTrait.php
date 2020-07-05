@@ -2,6 +2,8 @@
 
 namespace Google\Auth\Credentials;
 
+use Google\Http\ClientInterface;
+
 /**
  * Trait for shared functionality between credentials classes.
  *
@@ -9,6 +11,11 @@ namespace Google\Auth\Credentials;
  */
 trait CredentialsTrait
 {
+    /**
+     * @var ClientInterface
+     */
+    private $httpClient;
+
     /**
      * Returns request headers containing the authorization token
      *
@@ -29,12 +36,18 @@ trait CredentialsTrait
     /**
      *
      */
-    private function validateOptions(array $k)
+    private function setHttpClientFromOptions(array $options): void
     {
-        $cacheItem = $this->cache->getItem($key);
-        if ($cacheItem->isHit()) {
-            return $cacheItem->get();
+        if (empty($options['httpClient'])) {
+            throw new \RuntimeException('Missing required option "httpClient"');
         }
+        if (!$options['httpClient'] instanceof ClientInterface) {
+            throw new \RuntimeException(sprintf(
+                'Invalid option "httpClient": must be an instance of %s',
+                ClientInterface::class
+            ));
+        }
+        $this->httpClient = $options['httpClient'];
     }
 
     /**

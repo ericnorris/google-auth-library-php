@@ -18,8 +18,7 @@
 namespace Google\Auth;
 
 use Firebase\JWT\JWT;
-use Google\Auth\HttpHandler\HttpClientCache;
-use Google\Auth\HttpHandler\HttpHandlerFactory;
+use Google\Auth\Http\ClientFactory;
 use GuzzleHttp\Psr7;
 use GuzzleHttp\Psr7\Request;
 use InvalidArgumentException;
@@ -43,7 +42,7 @@ class OAuth2
     /**
      * TODO: determine known methods from the keys of JWT::methods.
      */
-    public static $knownSigningAlgorithms = array(
+    private static $knownSigningAlgorithms = array(
         'HS256',
         'HS512',
         'HS384',
@@ -55,7 +54,7 @@ class OAuth2
      *
      * @var array
      */
-    public static $knownGrantTypes = array(
+    private static $knownGrantTypes = array(
         'authorization_code',
         'refresh_token',
         'password',
@@ -254,6 +253,11 @@ class OAuth2
     private $additionalClaims;
 
     /**
+     * @var ClientInterface
+     */
+    private $httpClient;
+
+    /**
      * Create a new OAuthCredentials.
      *
      * The configuration array accepts various options
@@ -305,16 +309,6 @@ class OAuth2
      * - signingKeyId
      *   Signing key id when using assertion profile
      *
-     * - refreshToken
-     *   The refresh token associated with the access token
-     *   to be refreshed.
-     *
-     * - accessToken
-     *   The current access token for this client.
-     *
-     * - idToken
-     *   The current ID token for this client.
-     *
      * - extensionParams
      *   When using an extension grant type, this is the set of parameters used
      *   by that extension.
@@ -324,6 +318,7 @@ class OAuth2
     public function __construct(array $config)
     {
         $opts = array_merge([
+            'httpClient' => null,
             'expiry' => self::DEFAULT_EXPIRY_SECONDS,
             'extensionParams' => [],
             'authorizationUri' => null,
@@ -334,6 +329,7 @@ class OAuth2
             'password' => null,
             'clientId' => null,
             'clientSecret' => null,
+            'refreshToken' => null,
             'issuer' => null,
             'sub' => null,
             'audience' => null,
@@ -344,6 +340,7 @@ class OAuth2
             'additionalClaims' => [],
         ], $config);
 
+        $this->httpClient = $opts['httpClient'] ?: ClientFactory::build();
         $this->setAuthorizationUri($opts['authorizationUri']);
         $this->setRedirectUri($opts['redirectUri']);
         $this->setTokenCredentialUri($opts['tokenCredentialUri']);
@@ -352,6 +349,7 @@ class OAuth2
         $this->setPassword($opts['password']);
         $this->setClientId($opts['clientId']);
         $this->setClientSecret($opts['clientSecret']);
+        $this->setRefreshToken($opts['refreshToken']);
         $this->setIssuer($opts['issuer']);
         $this->setSub($opts['sub']);
         $this->setExpiry($opts['expiry']);
@@ -362,7 +360,6 @@ class OAuth2
         $this->setScope($opts['scope']);
         $this->setExtensionParams($opts['extensionParams']);
         $this->setAdditionalClaims($opts['additionalClaims']);
-        $this->updateToken($opts);
     }
 
     /**
@@ -455,11 +452,27 @@ class OAuth2
     }
 
     /**
+     * Fetches the auth tokens based on the current state.
+     *
+     * @return array the response
+     */
+    public function fetchAuthToken(): array
+    {
+        $response = $this->httpClient->send(
+            $this->generateCredentialsRequest()
+        );
+        $credentials = $this->parseTokenResponse($response);
+        $this->setAuthToken($credentials);
+
+        return $credentials;
+    }
+
+    /**
      * Generates a request for token credentials.
      *
      * @return RequestInterface the authorization Url.
      */
-    public function generateCredentialsRequest()
+    private function generateCredentialsRequest()
     {
         $uri = $this->getTokenCredentialUri();
         if (is_null($uri)) {
@@ -513,31 +526,13 @@ class OAuth2
     }
 
     /**
-     * Fetches the auth tokens based on the current state.
-     *
-     * @return array the response
-     */
-    public function fetchAuthToken(): array
-    {
-        if (is_null($httpHandler)) {
-            $httpHandler = HttpHandlerFactory::build(HttpClientCache::getHttpClient());
-        }
-
-        $response = $httpHandler($this->generateCredentialsRequest());
-        $credentials = $this->parseTokenResponse($response);
-        $this->updateToken($credentials);
-
-        return $credentials;
-    }
-
-    /**
      * Parses the fetched tokens.
      *
      * @param ResponseInterface $resp the response.
      * @return array the tokens parsed from the response body.
      * @throws \Exception
      */
-    public function parseTokenResponse(ResponseInterface $resp)
+    private function parseTokenResponse(ResponseInterface $resp)
     {
         $body = (string)$resp->getBody();
         if ($resp->hasHeader('Content-Type') &&
@@ -916,7 +911,7 @@ class OAuth2
      *
      * @param string $uri
      */
-    public function setAuthorizationUri($uri)
+    public function setAuthorizationUri(?string $uri): void
     {
         $this->authorizationUri = $this->coerceUri($uri);
     }
@@ -1333,7 +1328,7 @@ class OAuth2
      *
      * @param $extensionParams
      */
-    public function setextensionParams(array $extensionParams)
+    public function setExtensionParams(array $extensionParams)
     {
         $this->extensionParams = $extensionParams;
     }
@@ -1369,7 +1364,7 @@ class OAuth2
      *
      * @param int $expiresIn
      */
-    public function setExpiresIn(int $expiresIn): void
+    public function setExpiresIn(?int $expiresIn): void
     {
         if (is_null($expiresIn)) {
             $this->expiresIn = null;
@@ -1416,7 +1411,7 @@ class OAuth2
      *
      * @param int $expiresAt
      */
-    public function setExpiresAt(int $expiresAt): void
+    public function setExpiresAt(?int $expiresAt): void
     {
         $this->expiresAt = $expiresAt;
     }
@@ -1496,7 +1491,7 @@ class OAuth2
      *
      * @param string|null $refreshToken
      */
-    public function setRefreshToken(string $refreshToken = null): void
+    public function setRefreshToken(?string $refreshToken): void
     {
         $this->refreshToken = $refreshToken;
     }
@@ -1542,10 +1537,10 @@ class OAuth2
      * @param string $uri
      * @return null|UriInterface
      */
-    private function coerceUri(string $uri): ?UriInterface
+    private function coerceUri(?string $uri): ?UriInterface
     {
         if (is_null($uri)) {
-            return;
+            return null;
         }
 
         return Psr7\uri_for($uri);
@@ -1558,7 +1553,7 @@ class OAuth2
      * @param string $uri
      * @return bool
      */
-    private function isAbsoluteUri(strring $uri): bool
+    private function isAbsoluteUri(string $uri): bool
     {
         $uri = $this->coerceUri($uri);
 
@@ -1577,7 +1572,5 @@ class OAuth2
             $params['client_id'] = $clientId;
             $params['client_secret'] = $clientSecret;
         }
-
-        return $params;
     }
 }

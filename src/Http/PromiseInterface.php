@@ -55,7 +55,7 @@ interface PromiseInterface
      * @param mixed $value
      * @throws \RuntimeException if the promise is already resolved.
      */
-    public function resolve($value);
+    public function resolve($value): void;
 
     /**
      * Reject the promise with the given reason.
@@ -63,14 +63,14 @@ interface PromiseInterface
      * @param mixed $reason
      * @throws \RuntimeException if the promise is already resolved.
      */
-    public function reject($reason);
+    public function reject($reason): void;
 
     /**
      * Cancels the promise if possible.
      *
      * @link https://github.com/promises-aplus/cancellation-spec/issues/7
      */
-    public function cancel();
+    public function cancel(): void;
 
     /**
      * Waits until the promise completes if possible.

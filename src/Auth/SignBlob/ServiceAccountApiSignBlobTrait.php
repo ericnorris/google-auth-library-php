@@ -17,8 +17,7 @@
 
 namespace Google\Auth\SignBlob;
 
-use Google\Auth\HttpHandler\HttpClientCache;
-use Google\Auth\HttpHandler\HttpHandlerFactory;
+use Google\Http\ClientInterface;
 use GuzzleHttp\Psr7;
 
 /**
@@ -48,7 +47,7 @@ trait ServiceAccountApiSignBlobTrait
         string $email,
         string $accessToken,
         ClientInterface $httpClient,
-        array $delegates = [],
+        array $delegates = []
     ): string {
         $name = sprintf('projects/-/serviceAccounts/%s', $email);
         $uri = sprintf(

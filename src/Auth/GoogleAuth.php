@@ -19,10 +19,9 @@ namespace Google\Auth;
 
 use DomainException;
 use Google\Auth\Credentials\AppIdentityCredentials;
-use Google\Auth\Credentials\GCECredentials;
+use Google\Auth\Credentials\ComputeCredentials;
 use Google\Auth\Credentials\ServiceAccountCredentials;
-use Google\Auth\HttpHandler\HttpClientCache;
-use Google\Auth\HttpHandler\HttpHandlerFactory;
+use Google\Auth\Http\ClientFactory;
 use Google\Auth\Middleware\AuthTokenMiddleware;
 use Google\Auth\Subscriber\AuthTokenSubscriber;
 use GuzzleHttp\Client;
@@ -68,7 +67,6 @@ use Psr\Cache\CacheItemPoolInterface;
  */
 class GoogleAuth
 {
-    private const TOKEN_CREDENTIAL_URI = 'https://oauth2.googleapis.com/token';
     private const TOKEN_REVOKE_URI = 'https://oauth2.googleapis.com/revoke';
     private const OIDC_CERT_URI = 'https://www.googleapis.com/oauth2/v3/certs';
     private const OIDC_ISSUERS = ['accounts.google.com', 'https://accounts.google.com'];
@@ -91,7 +89,7 @@ class GoogleAuth
      *      @type string|array scope the scope of the access request, expressed
      *             either as an Array or as a space-delimited String.
      *      @type string $targetAudience The audience for the ID token.
-     *      @type callable $httpHandler callback which delivers psr7 request
+     *      @type callable $httpClient callback which delivers psr7 request
      *      @type array $cacheConfig configuration for the cache when present
      *      @type CacheItemPoolInterface $cache A cache implementation, may be
      *             provided if you have one already available for use.
@@ -106,7 +104,7 @@ class GoogleAuth
         $options += [
             'scope' => null,
             'targetAudience' => null,
-            'httpHandler' => null,
+            'httpClient' => null,
             'lifetime' => null,
             'cache' => null,
             'quotaProject' => null,
@@ -114,7 +112,7 @@ class GoogleAuth
         $creds = null;
         $jsonKey = self::fromEnv() ?: self::fromWellKnownFile();
 
-        $httpHandler = $options['httpHandler'] ?: ClientFactory::build();
+        $httpClient = $options['httpClient'] ?: ClientFactory::build();
 
         if (!is_null($jsonKey)) {
             if (!array_key_exists('type', $jsonKey)) {
@@ -144,7 +142,7 @@ class GoogleAuth
                         'invalid value in the type field'
                     );
             }
-        } elseif (ComputeCredentials::onGce($httpHandler)) {
+        } elseif (ComputeCredentials::onGce($httpClient)) {
             $creds = new ComputeCredentials([
                 'scope' => $options['scope'],
                 'quotaProject' => $options['quotaProject'],
@@ -167,7 +165,7 @@ class GoogleAuth
      *
      * @param FetchAuthTokenInterface $fetcher is used to fetch the auth token
      * @param array $httpClientOptions (optional) Array of request options to apply.
-     * @param callable $httpHandler (optional) http client to fetch the token.
+     * @param callable $httpClient (optional) http client to fetch the token.
      * @param callable $tokenCallback (optional) function to be called when a new token is fetched.
      * @return \GuzzleHttp\Client
      */
@@ -180,7 +178,7 @@ class GoogleAuth
                 $client->setDefaultOption('auth', 'google_auth');
                 $subscriber = new Subscriber\AuthTokenSubscriber(
                     $fetcher,
-                    $httpHandler,
+                    $httpClient,
                     $tokenCallback
                 );
                 $client->getEmitter()->attach($subscriber);
@@ -188,7 +186,7 @@ class GoogleAuth
             case '6':
                 $middleware = new Middleware\AuthTokenMiddleware(
                     $fetcher,
-                    $httpHandler,
+                    $httpClient,
                     $tokenCallback
                 );
                 $stack = \GuzzleHttp\HandlerStack::create();
@@ -201,6 +199,55 @@ class GoogleAuth
             default:
                 throw new \Exception('Version not supported');
         }
+    }
+
+    /**
+     * Determines if this a GCE instance, by accessing the expected metadata
+     * host.
+     *
+     * @return bool
+     */
+    public function onCompute(): bool
+    {
+        /**
+         * Note: the explicit `timeout` and `tries` below is a workaround. The underlying
+         * issue is that resolving an unknown host on some networks will take
+         * 20-30 seconds; making this timeout short fixes the issue, but
+         * could lead to false negatives in the event that we are on GCE, but
+         * the metadata resolution was particularly slow. The latter case is
+         * "unlikely" since the expected 4-nines time is about 0.5 seconds.
+         * This allows us to limit the total ping maximum timeout to 1.5 seconds
+         * for developer desktop scenarios.
+         */
+        $maxComputePingTries = 3;
+        $computePingConnectionTimeoutSeconds = 0.5;
+        $checkUri = 'http://' . ComputeCredentials::METADATA_IP;
+        for ($i = 1; $i <= $maxComputePingTries; $i++) {
+            try {
+                // Comment from: oauth2client/client.py
+                //
+                // Note: the explicit `timeout` below is a workaround. The underlying
+                // issue is that resolving an unknown host on some networks will take
+                // 20-30 seconds; making this timeout short fixes the issue, but
+                // could lead to false negatives in the event that we are on GCE, but
+                // the metadata resolution was particularly slow. The latter case is
+                // "unlikely".
+                $resp = $this->httpClient->send(
+                    new Request(
+                        'GET',
+                        $checkUri,
+                        [self::FLAVOR_HEADER => 'Google']
+                    ),
+                    ['timeout' => $computePingConnectionTimeoutSeconds]
+                );
+
+                return $resp->getHeaderLine(self::FLAVOR_HEADER) == 'Google';
+            } catch (ClientException $e) {
+            } catch (ServerException $e) {
+            } catch (RequestException $e) {
+            }
+        }
+        return false;
     }
 
     /**
@@ -271,8 +318,7 @@ class GoogleAuth
             return json_decode(file_get_contents($url), true);
         }
 
-        $httpHandler = $this->httpHandler;
-        $response = $httpHandler(new Request('GET', $url), $options);
+        $response = $this->httpClient->send(new Request('GET', $url), $options);
 
         if ($response->getStatusCode() == 200) {
             return json_decode((string) $response->getBody(), true);
@@ -309,7 +355,7 @@ class GoogleAuth
      *
      * @return array|null
      */
-    private static function fromEnv(): ?array
+    public static function fromEnv(): ?array
     {
         $path = getenv(self::ENV_VAR);
         if (empty($path)) {
@@ -335,7 +381,7 @@ class GoogleAuth
      *
      * @return array|null
      */
-    private static function fromWellKnownFile(): ?array
+    public static function fromWellKnownFile(): ?array
     {
         $rootEnv = self::isOnWindows() ? 'APPDATA' : 'HOME';
         $path = [getenv($rootEnv)];

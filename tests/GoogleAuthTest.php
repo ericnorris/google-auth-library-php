@@ -18,7 +18,7 @@
 namespace Google\Auth\Tests;
 
 use Google\Auth\GoogleAuth;
-use Google\Auth\Credentials\GCECredentials;
+use Google\Auth\Credentials\ComputeCredentials;
 use Google\Auth\Credentials\ServiceAccountCredentials;
 use GuzzleHttp\Psr7;
 use PHPUnit\Framework\TestCase;
@@ -94,7 +94,7 @@ class ADCGetTest extends TestCase
 
         // simulate the response from GCE.
         $httpHandler = getHandler([
-            buildResponse(200, [GCECredentials::FLAVOR_HEADER => 'Google']),
+            buildResponse(200, [ComputeCredentials::FLAVOR_HEADER => 'Google']),
             buildResponse(200, [], Psr7\stream_for($jsonTokens)),
         ]);
 
@@ -192,7 +192,7 @@ class ADCGetMiddlewareTest extends TestCase
 
         // simulate the response from GCE.
         $httpHandler = getHandler([
-            buildResponse(200, [GCECredentials::FLAVOR_HEADER => 'Google']),
+            buildResponse(200, [ComputeCredentials::FLAVOR_HEADER => 'Google']),
             buildResponse(200, [], Psr7\stream_for($jsonTokens)),
         ]);
 
@@ -295,7 +295,7 @@ class ADCGetCredentialsWithTargetAudienceTest extends TestCase
 
         // simulate the response from GCE.
         $httpHandler = getHandler([
-            buildResponse(200, [GCECredentials::FLAVOR_HEADER => 'Google']),
+            buildResponse(200, [ComputeCredentials::FLAVOR_HEADER => 'Google']),
             buildResponse(200, [], Psr7\stream_for($jsonTokens)),
         ]);
 
@@ -305,7 +305,7 @@ class ADCGetCredentialsWithTargetAudienceTest extends TestCase
         );
 
         $this->assertInstanceOf(
-            'Google\Auth\Credentials\GCECredentials',
+            'Google\Auth\Credentials\ComputeCredentials',
             $credentials
         );
     }
@@ -381,7 +381,7 @@ class ADCGetCredentialsWithQuotaProjectTest extends TestCase
         );
     }
 
-    public function testWithGCECredentials()
+    public function testWithComputeCredentials()
     {
         putenv('HOME=' . __DIR__ . '/not_exist_fixtures');
         $wantedTokens = [
@@ -393,7 +393,7 @@ class ADCGetCredentialsWithQuotaProjectTest extends TestCase
 
         // simulate the response from GCE.
         $httpHandler = getHandler([
-            buildResponse(200, [GCECredentials::FLAVOR_HEADER => 'Google']),
+            buildResponse(200, [ComputeCredentials::FLAVOR_HEADER => 'Google']),
             buildResponse(200, [], Psr7\stream_for($jsonTokens)),
         ]);
 
@@ -406,7 +406,7 @@ class ADCGetCredentialsWithQuotaProjectTest extends TestCase
         );
 
         $this->assertInstanceOf(
-            'Google\Auth\Credentials\GCECredentials',
+            'Google\Auth\Credentials\ComputeCredentials',
             $credentials
         );
 
@@ -456,10 +456,10 @@ class ADCGetCredentialsAppEngineTest extends BaseTest
         $_SERVER['SERVER_SOFTWARE'] = 'Google App Engine';
         putenv('GAE_INSTANCE=aef-default-20180313t154438');
         $httpHandler = getHandler([
-            buildResponse(200, [GCECredentials::FLAVOR_HEADER => 'Google']),
+            buildResponse(200, [ComputeCredentials::FLAVOR_HEADER => 'Google']),
         ]);
         $this->assertInstanceOf(
-            'Google\Auth\Credentials\GCECredentials',
+            'Google\Auth\Credentials\ComputeCredentials',
             GoogleAuth::getCredentials(null, $httpHandler)
         );
     }
@@ -469,14 +469,14 @@ class ADCGetCredentialsAppEngineTest extends BaseTest
         $_SERVER['SERVER_SOFTWARE'] = 'Google App Engine';
         putenv('GAE_INSTANCE=aef-default-20180313t154438');
         $httpHandler = getHandler([
-            buildResponse(200, [GCECredentials::FLAVOR_HEADER => 'Google']),
+            buildResponse(200, [ComputeCredentials::FLAVOR_HEADER => 'Google']),
         ]);
         $creds = GoogleAuth::getIdTokenCredentials(
             $this->targetAudience,
             $httpHandler
         );
         $this->assertInstanceOf(
-            'Google\Auth\Credentials\GCECredentials',
+            'Google\Auth\Credentials\ComputeCredentials',
             $creds
         );
     }

@@ -17,14 +17,14 @@
 
 namespace Google\Http\Client;
 
-use Google\Http\ClientInterface;
 use Google\Http\Promise\GuzzlePromise;
 use Google\Http\Promise\PromiseInterface;
+use Google\Http\ClientInterface as GoogleClientInterface;
 use GuzzleHttp\ClientInterface as GuzzleClientInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 
-class GuzzleClient implements ClientInterface
+class GuzzleClient implements GoogleClientInterface
 {
     /**
      * @var \GuzzleHttp\ClientInterface
@@ -47,8 +47,10 @@ class GuzzleClient implements ClientInterface
      *
      * @return \Psr\Http\Message\ResponseInterface
      */
-    public function send(RequestInterface $request, array $options = [])
-    {
+    public function send(
+        RequestInterface $request,
+        array $options = []
+    ): ResponseInterface {
         return $this->client->send($request, $options);
     }
 
@@ -61,8 +63,10 @@ class GuzzleClient implements ClientInterface
      * @return \Google\Http\Promise\PromiseInterface
      * @throws \LogicException
      */
-    public function sendAsync(RequestInterface $request, array $options = []): PromiseInterface
-    {
+    public function sendAsync(
+        RequestInterface $request,
+        array $options = []
+    ): PromiseInterface {
         return new GuzzlePromise($this->client->sendAsync($request, $options));
     }
 
@@ -70,11 +74,11 @@ class GuzzleClient implements ClientInterface
     {
         if (defined('GuzzleHttp\ClientInterface::VERSION')) {
             // Guzzle 4 (unsupported), 5 (unsupported), and 6
-            return ClientInterface::VERSION[0];
+            return GuzzleClientInterface::VERSION[0];
         }
         if (defined('GuzzleHttp\ClientInterface::MAJOR_VERSION')) {
             // Guzzle 7
-            return ClientInterface::MAJOR_VERSION;
+            return GuzzleClientInterface::MAJOR_VERSION;
         }
         throw new \LogicException('Unable to detect Guzzle version');
     }

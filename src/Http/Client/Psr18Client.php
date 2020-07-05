@@ -17,9 +17,8 @@
 
 namespace Google\Http\Client;
 
-use Google\Http\ClientInterface;
 use Google\Http\Promise\PromiseInterface;
-use Psr\Http\Client\ClientInterface as PsrClientInterface;
+use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 
@@ -33,7 +32,7 @@ class Psr18Client implements ClientInterface
     /**
      * @param \Psr\Http\Client\ClientInterface $client
      */
-    public function __construct(PsrClientInterface $client)
+    public function __construct(ClientInterface $client)
     {
         $this->client = $client;
     }
@@ -46,8 +45,10 @@ class Psr18Client implements ClientInterface
      *
      * @return \Psr\Http\Message\ResponseInterface
      */
-    public function __invoke(RequestInterface $request, array $options = [])
-    {
+    public function send(
+        RequestInterface $request,
+        array $options = []
+    ): ResponseInterface {
         if (!empty($options)) {
             // Ignore per-request options
         }
@@ -61,8 +62,10 @@ class Psr18Client implements ClientInterface
      *
      * @throws \RuntimeException
      */
-    public function async(RequestInterface $request, array $options = []): PromiseInterface
-    {
+    public function sendAsync(
+        RequestInterface $request,
+        array $options = []
+    ): PromiseInterface {
         throw new \RuntimeException('async not supported for PSR-18 clients');
     }
 }
