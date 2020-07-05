@@ -2,7 +2,9 @@
 
 namespace Google\Auth\Credentials;
 
+use Google\Cache\MemoryCacheItemPool;
 use Google\Http\ClientInterface;
+use Psr\Cache\CacheItemPoolInterface;
 
 /**
  * Trait for shared functionality between credentials classes.
@@ -15,6 +17,21 @@ trait CredentialsTrait
      * @var ClientInterface
      */
     private $httpClient;
+
+    /**
+     * @var CacheItemPoolInterface
+     */
+    private $cache;
+
+    /**
+     * @var int
+     */
+    private $cacheLifetime = 1500;
+
+    /**
+     * @var string
+     */
+    private $cachePrefix = '';
 
     /**
      * Returns request headers containing the authorization token
@@ -48,6 +65,30 @@ trait CredentialsTrait
             ));
         }
         $this->httpClient = $options['httpClient'];
+    }
+
+    /**
+     *
+     */
+    private function setCacheFromOptions(array $options): void
+    {
+        if (!empty($options['cache'])) {
+            if (!$options['cache'] instanceof CacheItemPoolInterface) {
+                throw new \RuntimeException(sprintf(
+                    'Invalid option "cache": must be an instance of %s',
+                    CacheItemPoolInterface::class
+                ));
+            }
+            $this->cache = $options['cache'];
+        } else {
+            $this->cache = new MemoryCacheItemPool();
+        }
+        if (array_has_key($options['cacheLifetime'])) {
+            $this->cacheLifetime = (int) $options['cacheLifetime'];
+        }
+        if (array_has_key($options['cachePrefix'])) {
+            $this->cachePrefix = (string) $options['cachePrefix'];
+        }
     }
 
     /**
@@ -87,7 +128,7 @@ trait CredentialsTrait
 
         $cacheItem = $this->cache->getItem($key);
         $cacheItem->set($v);
-        $cacheItem->expiresAfter($this->cacheConfig['lifetime']);
+        $cacheItem->expiresAfter($this->cacheLifetime);
         return $this->cache->save($cacheItem);
     }
 
@@ -97,7 +138,7 @@ trait CredentialsTrait
             return;
         }
 
-        $key = $this->cacheConfig['prefix'] . $key;
+        $key = $this->cachePrefix . $key;
 
         // ensure we do not have illegal characters
         $key = preg_replace('|[^a-zA-Z0-9_\.!]|', '', $key);
