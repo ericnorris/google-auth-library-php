@@ -20,8 +20,6 @@ declare(strict_types=1);
 namespace Google\Auth\Credentials;
 
 use Google\Auth\OAuth2;
-use Google\Auth\SignBlob\ServiceAccountApiSignBlobTrait;
-use Google\Auth\SignBlob\SignBlobInterface;
 
 /**
  * Authenticates requests using User Refresh credentials.
@@ -34,10 +32,9 @@ use Google\Auth\SignBlob\SignBlobInterface;
  *
  * @see [Application Default Credentials](http://goo.gl/mkAHpZ)
  */
-class UserRefreshCredentials implements CredentialsInterface, SignBlobInterface
+class UserRefreshCredentials implements CredentialsInterface
 {
     use CredentialsTrait;
-    use ServiceAccountApiSignBlobTrait;
 
     /**
      * The OAuth2 instance used to conduct authorization.
@@ -103,34 +100,6 @@ class UserRefreshCredentials implements CredentialsInterface, SignBlobInterface
     public function fetchAuthToken(): array
     {
         return $this->oauth2->fetchAuthToken();
-    }
-
-    /**
-     * Sign a string using the method which is best for a given credentials type.
-     * If OpenSSL is not installed, uses the Service Account Credentials API.
-     *
-     * @param string $stringToSign The string to sign.
-     * @return string The resulting signature. Value should be base64-encoded.
-     */
-    public function signBlob(string $stringToSign): string
-    {
-        $accessToken = $this->fetchAuthToken()['access_token'];
-        return $this->signBlobWithServiceAccountApi(
-            $stringToSign,
-            $this->getClientEmail(),
-            $accessToken,
-            $this->httpClient
-        );
-    }
-
-    /**
-     * Returns the client email required for signing blobs.
-     *
-     * @return string
-     */
-    public function getClientEmail(): string
-    {
-        return $this->oauth2->getClientId();
     }
 
     /**
