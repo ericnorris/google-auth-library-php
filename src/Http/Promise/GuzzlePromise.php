@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+declare(strict_types=1);
+
 namespace Google\Http\Promise;
 
 use GuzzleHttp\Promise\PromiseInterface as GuzzlePromiseInterface;

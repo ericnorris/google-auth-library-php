@@ -1,6 +1,6 @@
 <?php
 /*
- * Copyright 2015 Google Inc.
+ * Copyright 2020 Google Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,16 +15,15 @@
  * limitations under the License.
  */
 
+declare(strict_types=1);
+
 namespace Google\Auth;
 
 use DomainException;
-use Google\Auth\Credentials\AppIdentityCredentials;
 use Google\Auth\Credentials\ComputeCredentials;
 use Google\Auth\Credentials\ServiceAccountCredentials;
+use Google\Auth\Credentials\ServiceAccountCredentialsJwtAccess;
 use Google\Auth\Http\ClientFactory;
-use Google\Auth\Middleware\AuthTokenMiddleware;
-use Google\Auth\Subscriber\AuthTokenSubscriber;
-use GuzzleHttp\Client;
 use InvalidArgumentException;
 use Psr\Cache\CacheItemPoolInterface;
 
@@ -89,10 +88,11 @@ class GoogleAuth
      *      @type string|array scope the scope of the access request, expressed
      *             either as an Array or as a space-delimited String.
      *      @type string $targetAudience The audience for the ID token.
-     *      @type callable $httpClient callback which delivers psr7 request
-     *      @type array $cacheConfig configuration for the cache when present
+     *      @type ClientInterface $httpClient client which delivers psr7 request
      *      @type CacheItemPoolInterface $cache A cache implementation, may be
      *             provided if you have one already available for use.
+     *      @type int $cacheLifetime
+     *      @type string $cachePrefix
      *      @type string $quotaProject specifies a project to bill for access
      *        charges associated with the request.
      * }
@@ -122,10 +122,16 @@ class GoogleAuth
             $jsonKey['quota_project'] = $options['quotaProject'];
             switch ($jsonKey['type']) {
                 case 'service_account':
-                    $creds = new ServiceAccountCredentials($jsonKey, [
-                        'scope' => $options['scope'],
-                        'targetAudience' => $options['targetAudience'],
-                    ]);
+                    if ($options['scope'] || $options['targetAudience']) {
+                        $creds = new ServiceAccountCredentials($jsonKey, [
+                            'scope' => $options['scope'],
+                            'targetAudience' => $options['targetAudience'],
+                        ]);
+                    } else {
+                        $creds = new ServiceAccountCredentialsJwtAccess(
+                            $jsonKey
+                        );
+                    }
                     break;
                 case 'authorized_user':
                     if (isset($options['targetAudience'])) {
@@ -142,7 +148,7 @@ class GoogleAuth
                         'invalid value in the type field'
                     );
             }
-        } elseif (ComputeCredentials::onGce($httpClient)) {
+        } elseif ($this->onCompute()) {
             $creds = new ComputeCredentials([
                 'scope' => $options['scope'],
                 'quotaProject' => $options['quotaProject'],
@@ -402,7 +408,7 @@ class GoogleAuth
      *
      * @return string
      */
-    private static function unableToReadEnv($cause): string
+    private static function unableToReadEnv(string $cause): string
     {
         $msg = 'Unable to read the credential file specified by ';
         $msg .= ' GOOGLE_APPLICATION_CREDENTIALS: ';
