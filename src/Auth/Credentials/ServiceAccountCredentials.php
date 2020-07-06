@@ -20,6 +20,7 @@ declare(strict_types=1);
 namespace Google\Auth\Credentials;
 
 use Google\Auth\SignBlob\ServiceAccountApiSignBlobTrait;
+use Google\Auth\SignBlob\PrivateKeySignBlobTrait;
 use Google\Auth\SignBlob\SignBlobInterface;
 use Google\Auth\OAuth2;
 use InvalidArgumentException;
@@ -102,7 +103,7 @@ class ServiceAccountCredentials implements
         $options += [
             'scope' => null,
             'targetAudience' => null,
-            'sub' => null,
+            'subject' => null,
         ];
 
         if (is_string($jsonKey)) {
@@ -133,11 +134,12 @@ class ServiceAccountCredentials implements
             );
         }
         $additionalClaims = [];
-        if ($optionos['targetAudience']) {
+        if ($options['targetAudience']) {
             $additionalClaims = [
                 'target_audience' => $options['targetAudience']
             ];
         }
+        $this->setHttpClientFromOptions($options);
         $this->oauth2 = new OAuth2([
             'audience' => self::TOKEN_CREDENTIAL_URI,
             'tokenCredentialUri' => self::TOKEN_CREDENTIAL_URI,
@@ -145,15 +147,15 @@ class ServiceAccountCredentials implements
             'signingKey' => $jsonKey['private_key'],
             'issuer' => $jsonKey['client_email'],
             'scope' => $options['scope'],
-            'sub' => $options['sub'],
+            'sub' => $options['subject'],
             'additionalClaims' => $additionalClaims,
+            'httpClient' => $this->httpClient,
         ]);
 
         $this->projectId = isset($jsonKey['project_id'])
             ? $jsonKey['project_id']
             : null;
 
-        $this->setHttpClientFromOptions($options['httpClient']);
     }
 
     /**
@@ -164,7 +166,7 @@ class ServiceAccountCredentials implements
      */
     public function fetchAuthToken(): array
     {
-        return $this->oauth2->fetchAuthToken($httpHandler);
+        return $this->oauth2->fetchAuthToken();
     }
 
     /**
@@ -215,5 +217,15 @@ class ServiceAccountCredentials implements
     public function getClientEmail(): string
     {
         return $this->oauth2->getIssuer();
+    }
+
+    /**
+     * Get the quota project used for this API request
+     *
+     * @return string|null
+     */
+    public function getQuotaProject(): ?string
+    {
+        return $this->quotaProject;
     }
 }

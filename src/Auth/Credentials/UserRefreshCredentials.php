@@ -77,7 +77,7 @@ class UserRefreshCredentials implements CredentialsInterface, SignBlobInterface
                 'json key is missing the refresh_token field'
             );
         }
-        $this->setHttpClientFromOptions($options['httpClient']);
+        $this->setHttpClientFromOptions($options);
         $this->oauth2 = new OAuth2([
             'clientId' => $jsonKey['client_id'],
             'clientSecret' => $jsonKey['client_secret'],

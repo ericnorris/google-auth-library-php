@@ -60,7 +60,7 @@ trait CredentialsTrait
         ClientInterface $httpHandler = null
     ): array {
         $result = $this->fetchAuthToken($httpHandler);
-        if (!isset($result['access_token'])) {
+        if (isset($result['access_token'])) {
             return ['Authorization' => 'Bearer ' . $result['access_token']];
         }
 

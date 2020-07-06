@@ -22,7 +22,8 @@ namespace Google\Auth;
 use DomainException;
 use Google\Auth\Credentials\ComputeCredentials;
 use Google\Auth\Credentials\ServiceAccountCredentials;
-use Google\Auth\Credentials\ServiceAccountCredentialsJwtAccess;
+use Google\Auth\Credentials\ServiceAccountJwtAccessCredentials;
+use Google\Auth\Credentials\CredentialsInterface;
 use Google\Auth\Http\ClientFactory;
 use InvalidArgumentException;
 use Psr\Cache\CacheItemPoolInterface;
@@ -108,6 +109,7 @@ class GoogleAuth
             'lifetime' => null,
             'cache' => null,
             'quotaProject' => null,
+            'subject' => null,
         ];
         $creds = null;
         $jsonKey = self::fromEnv() ?: self::fromWellKnownFile();
@@ -126,10 +128,13 @@ class GoogleAuth
                         $creds = new ServiceAccountCredentials($jsonKey, [
                             'scope' => $options['scope'],
                             'targetAudience' => $options['targetAudience'],
+                            'httpClient' => $httpClient,
+                            'subject' => $options['subject'],
                         ]);
                     } else {
-                        $creds = new ServiceAccountCredentialsJwtAccess(
-                            $jsonKey
+                        $creds = new ServiceAccountJwtAccessCredentials(
+                            $jsonKey,
+                            ['httpClient' => $httpClient]
                         );
                     }
                     break;

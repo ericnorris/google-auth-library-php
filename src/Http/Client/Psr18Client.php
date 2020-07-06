@@ -19,7 +19,7 @@ declare(strict_types=1);
 
 namespace Google\Http\Client;
 
-use Google\Http\Promise\PromiseInterface;
+use Google\Http\PromiseInterface;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;

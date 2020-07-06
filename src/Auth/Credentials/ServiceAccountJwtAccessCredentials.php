@@ -20,6 +20,7 @@ declare(strict_types=1);
 namespace Google\Auth\Credentials;
 
 use Google\Auth\SignBlob\ServiceAccountApiSignBlobTrait;
+use Google\Auth\SignBlob\PrivateKeySignBlobTrait;
 use Google\Auth\SignBlob\SignBlobInterface;
 use Google\Auth\OAuth2;
 
@@ -58,8 +59,11 @@ class ServiceAccountJwtAccessCredentials implements
      * @param string|array $jsonKey JSON credential file path or JSON credentials
      *   as an associative array
      */
-    public function __construct($jsonKey)
+    public function __construct($jsonKey, array $options = [])
     {
+        if (!isset($options['audience'])) {
+            throw new \RuntimeException('"audience" is a required parameter');
+        }
         if (is_string($jsonKey)) {
             if (!file_exists($jsonKey)) {
                 throw new \InvalidArgumentException('file does not exist');
@@ -93,7 +97,7 @@ class ServiceAccountJwtAccessCredentials implements
             ? $jsonKey['project_id']
             : null;
 
-        $this->setHttpClientFromOptions($options['httpClient']);
+        $this->setHttpClientFromOptions($options);
     }
 
     /**
@@ -105,11 +109,6 @@ class ServiceAccountJwtAccessCredentials implements
      */
     public function fetchAuthToken(): array
     {
-        $audience = $this->oauth2->getAudience();
-        if (empty($audience)) {
-            return null;
-        }
-
         $access_token = $this->oauth2->toJwt();
 
         return ['access_token' => $access_token];

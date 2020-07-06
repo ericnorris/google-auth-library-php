@@ -19,6 +19,7 @@ declare(strict_types=1);
 
 namespace Google\Auth\Http;
 
+use Google\Auth\Credentials\CredentialsInterface;
 use Google\Http\ClientInterface;
 use Google\Http\PromiseInterface;
 use Psr\Http\Message\RequestInterface;
@@ -33,27 +34,27 @@ class CredentialsClient implements ClientInterface
         CredentialsInterface $credentials,
         ClientInterface $httpClient = null
     ) {
-        $this->credentials = $credentials
+        $this->credentials = $credentials;
         $this->httpClient = $httpClient ?: ClientFactory::build();
     }
 
-    public function sendRequest(
+    public function send(
         RequestInterface $request,
         array $options = []
     ): ResponseInterface {
-        return $this->httpClient->sendRequest(
-            $request->withHeaders($this->credentials->getRequestMetadata()),
-            $options
-        );
+        foreach ($this->credentials->getRequestMetadata() as $name => $value) {
+            $request = $request->withHeader($name, $value);
+        }
+        return $this->httpClient->send($request, $options);
     }
 
-    public function sendRequestAsync(
+    public function sendAsync(
         RequestInterface $request,
         array $options = []
     ): PromiseInterface {
-        return $this->httpClient->sendRequestAsync(
-            $request->withHeaders($this->credentials->getRequestMetadata()),
-            $options
-        );
+        foreach ($this->credentials->getRequestMetadata() as $name => $value) {
+            $request = $request->withHeader($name, $value);
+        }
+        return $this->httpClient->sendAsync($request, $options);
     }
 }
